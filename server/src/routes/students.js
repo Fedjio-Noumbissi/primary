@@ -6,7 +6,17 @@ const router = Router()
 
 router.get('/', authenticate, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM eleves WHERE actif = 1')
+    const [rows] = await pool.query(`
+      SELECT e.*, cl.libelle AS classe, s.libelle AS salle
+      FROM eleves e
+      LEFT JOIN Frequente f ON f.matricule = CAST(e.matricule AS UNSIGNED)
+        AND f.idFrequente = (
+          SELECT MAX(f2.idFrequente) FROM Frequente f2 WHERE f2.matricule = CAST(e.matricule AS UNSIGNED)
+        )
+      LEFT JOIN Salle s ON s.idSalle = f.idSalle
+      LEFT JOIN Classe cl ON cl.idClasse = s.idClasse
+      WHERE e.actif = 1
+    `)
     const mapped = rows.map((r) => ({
       matricule: parseInt(r.matricule) || r.matricule,
       nom: r.nom,
@@ -17,6 +27,8 @@ router.get('/', authenticate, async (req, res) => {
       langue: r.langue || 'FR',
       photoURL: r.photo_url || '',
       actif: !!r.actif,
+      classe: r.classe || null,
+      salle: r.salle || null,
     }))
     res.json(mapped)
   } catch (err) {
@@ -136,11 +148,12 @@ router.patch('/:id/toggle-active', authenticate, async (req, res) => {
 router.post('/enroll', authenticate, async (req, res) => {
   try {
     const { matricule, idSalle, idAcademi } = req.body
+    const idAdmin = req.user?.id || 1
     const [existing] = await pool.query('SELECT * FROM Frequente WHERE matricule = ? AND idAcademi = ?', [matricule, idAcademi])
     if (existing.length) {
-      await pool.query('UPDATE Frequente SET idSalle = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, matricule, idAcademi])
+      await pool.query('UPDATE Frequente SET idSalle = ?, idAdmin = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, idAdmin, matricule, idAcademi])
     } else {
-      await pool.query('INSERT INTO Frequente (idSalle, idAcademi, matricule) VALUES (?, ?, ?)', [idSalle, idAcademi, matricule])
+      await pool.query('INSERT INTO Frequente (idSalle, idAcademi, matricule, idAdmin) VALUES (?, ?, ?, ?)', [idSalle, idAcademi, matricule, idAdmin])
     }
     res.json({ success: true })
   } catch (err) {

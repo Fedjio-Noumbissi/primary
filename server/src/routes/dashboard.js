@@ -45,4 +45,58 @@ router.get('/parent/:idPers', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+router.get('/recent-payments', async (_req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT p.*, m.libelle AS mode FROM Paiement p JOIN Mode m ON p.idMode = m.idMode ORDER BY p.datePaie DESC LIMIT 5"
+    )
+    res.json(rows)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.get('/recent-students', async (_req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM eleves WHERE actif = 1 ORDER BY created_at DESC LIMIT 5"
+    )
+    const mapped = rows.map((r) => ({
+      matricule: parseInt(r.matricule) || r.matricule,
+      nom: r.nom,
+      prenom: r.prenom,
+      dateNaissance: r.date_naissance,
+      lieuNaissance: r.lieu_naissance,
+      sexe: r.sexe === 'M' ? 1 : 2,
+      langue: r.langue || 'FR',
+      photoURL: r.photo_url || '',
+      actif: !!r.actif,
+    }))
+    res.json(mapped)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.get('/students-per-class', async (_req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT cl.libelle, COUNT(f.matricule) AS effectif
+      FROM Classe cl
+      LEFT JOIN Salle s ON s.idClasse = cl.idClasse
+      LEFT JOIN Frequente f ON f.idSalle = s.idSalle
+      WHERE cl.isDelete = 0
+      GROUP BY cl.idClasse, cl.libelle
+    `)
+    res.json(rows)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.get('/payment-trend', async (_req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT DATE_FORMAT(datePaie, '%Y-%m') AS month, SUM(montant) AS total
+      FROM Paiement
+      GROUP BY month ORDER BY month
+    `)
+    res.json(rows)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 export default router
