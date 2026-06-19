@@ -22,7 +22,13 @@ router.post('/cycles', async (req, res) => {
 router.get('/classes', async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT c.idClasse, c.libelle, c.idCycle, cy.libelle AS cycle FROM Classe c JOIN Cycle cy ON c.idCycle = cy.idCycle WHERE c.isDelete = 0'
+      `SELECT c.idClasse, c.libelle, c.idCycle, cy.libelle AS cycle,
+              c.titulaire, CONCAT(p.nom, ' ', p.prenom) AS titulaireNom
+       FROM Classe c
+       JOIN Cycle cy ON c.idCycle = cy.idCycle
+       LEFT JOIN enseignants e ON e.id_enseignant = c.titulaire
+       LEFT JOIN personnes p ON p.id_pers = e.id_pers
+       WHERE c.isDelete = 0`
     )
     res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -33,7 +39,13 @@ router.post('/classes', async (req, res) => {
     const { libelle, idCycle } = req.body
     const [result] = await pool.query('INSERT INTO Classe (libelle, idCycle) VALUES (?, ?)', [libelle, idCycle])
     const [rows] = await pool.query(
-      'SELECT c.idClasse, c.libelle, c.idCycle, cy.libelle AS cycle FROM Classe c JOIN Cycle cy ON c.idCycle = cy.idCycle WHERE c.idClasse = ?',
+      `SELECT c.idClasse, c.libelle, c.idCycle, cy.libelle AS cycle,
+              c.titulaire, CONCAT(p.nom, ' ', p.prenom) AS titulaireNom
+       FROM Classe c
+       JOIN Cycle cy ON c.idCycle = cy.idCycle
+       LEFT JOIN enseignants e ON e.id_enseignant = c.titulaire
+       LEFT JOIN personnes p ON p.id_pers = e.id_pers
+       WHERE c.idClasse = ?`,
       [result.insertId]
     )
     res.status(201).json(rows[0])
