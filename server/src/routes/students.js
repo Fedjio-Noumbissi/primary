@@ -2,12 +2,14 @@ import { Router } from 'express'
 import pool from '../db.js'
 import { authenticate } from '../middleware/auth.js'
 
+pool.query('ALTER TABLE eleves ADD COLUMN idCycle INT NULL').catch(() => {})
+
 const router = Router()
 
 router.get('/', authenticate, async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT e.*, cl.libelle AS classe, s.libelle AS salle
+      SELECT e.*, cl.libelle AS classe, s.libelle AS salle, cy.libelle AS cycle
       FROM eleves e
       LEFT JOIN Frequente f ON f.matricule = CAST(e.matricule AS UNSIGNED)
         AND f.idFrequente = (
@@ -15,6 +17,7 @@ router.get('/', authenticate, async (req, res) => {
         )
       LEFT JOIN Salle s ON s.idSalle = f.idSalle
       LEFT JOIN Classe cl ON cl.idClasse = s.idClasse
+      LEFT JOIN Cycle cy ON cy.idCycle = e.idCycle
       WHERE e.actif = 1
     `)
     const mapped = rows.map((r) => ({
@@ -29,6 +32,8 @@ router.get('/', authenticate, async (req, res) => {
       actif: !!r.actif,
       classe: r.classe || null,
       salle: r.salle || null,
+      idCycle: r.idCycle || null,
+      cycle: r.cycle || null,
     }))
     res.json(mapped)
   } catch (err) {
@@ -51,6 +56,7 @@ router.get('/:id', authenticate, async (req, res) => {
       sexe: r.sexe === 'M' ? 1 : 2,
       langue: r.langue || 'FR',
       photoURL: r.photo_url || '',
+      idCycle: r.idCycle || null,
       actif: !!r.actif,
     })
   } catch (err) {
@@ -61,12 +67,12 @@ router.get('/:id', authenticate, async (req, res) => {
 
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { nom, prenom, dateNaissance, lieuNaissance, sexe, langue, photoURL } = req.body
+    const { nom, prenom, dateNaissance, lieuNaissance, sexe, langue, photoURL, idCycle } = req.body
     const [[{ maxMat }]] = await pool.query('SELECT COALESCE(MAX(CAST(matricule AS UNSIGNED)), 20260000) + 1 AS maxMat FROM eleves')
     const matricule = String(maxMat)
     await pool.query(
-      'INSERT INTO eleves (matricule, nom, prenom, date_naissance, lieu_naissance, sexe, langue, photo_url, actif) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
-      [matricule, nom, prenom, dateNaissance, lieuNaissance, sexe == 1 ? 'M' : 'F', langue || 'FR', photoURL || '']
+      'INSERT INTO eleves (matricule, nom, prenom, date_naissance, lieu_naissance, sexe, langue, photo_url, actif, idCycle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)',
+      [matricule, nom, prenom, dateNaissance, lieuNaissance, sexe == 1 ? 'M' : 'F', langue || 'FR', photoURL || '', idCycle || null]
     )
     const [rows] = await pool.query('SELECT * FROM eleves WHERE matricule = ?', [matricule])
     const r = rows[0]
@@ -79,6 +85,7 @@ router.post('/', authenticate, async (req, res) => {
       sexe: r.sexe === 'M' ? 1 : 2,
       langue: r.langue || 'FR',
       photoURL: r.photo_url || '',
+      idCycle: r.idCycle || null,
       actif: true,
     })
   } catch (err) {
@@ -89,10 +96,10 @@ router.post('/', authenticate, async (req, res) => {
 
 router.put('/:id', authenticate, async (req, res) => {
   try {
-    const { nom, prenom, dateNaissance, lieuNaissance, sexe, langue, photoURL } = req.body
+    const { nom, prenom, dateNaissance, lieuNaissance, sexe, langue, photoURL, idCycle } = req.body
     await pool.query(
-      'UPDATE eleves SET nom = ?, prenom = ?, date_naissance = ?, lieu_naissance = ?, sexe = ?, langue = ?, photo_url = ? WHERE matricule = ?',
-      [nom, prenom, dateNaissance, lieuNaissance, sexe == 1 ? 'M' : 'F', langue || 'FR', photoURL || '', req.params.id]
+      'UPDATE eleves SET nom = ?, prenom = ?, date_naissance = ?, lieu_naissance = ?, sexe = ?, langue = ?, photo_url = ?, idCycle = ? WHERE matricule = ?',
+      [nom, prenom, dateNaissance, lieuNaissance, sexe == 1 ? 'M' : 'F', langue || 'FR', photoURL || '', idCycle || null, req.params.id]
     )
     const [rows] = await pool.query('SELECT * FROM eleves WHERE matricule = ?', [req.params.id])
     const r = rows[0]
@@ -105,6 +112,7 @@ router.put('/:id', authenticate, async (req, res) => {
       sexe: r.sexe === 'M' ? 1 : 2,
       langue: r.langue || 'FR',
       photoURL: r.photo_url || '',
+      idCycle: r.idCycle || null,
       actif: !!r.actif,
     })
   } catch (err) {
