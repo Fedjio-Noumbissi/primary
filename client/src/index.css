@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cameroon-green: #006B3F;
+  --color-cameroon-red: #CE1126;
+  --color-cameroon-yellow: #FCD116;
+  --color-cameroon-green-light: #008854;
+  --color-cameroon-green-dark: #004d2d;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 font-sans;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; font-size: 12pt; }
+  .print-break { page-break-before: always; }
+}
+
+.report-card {
+  @apply bg-white p-8 max-w-4xl mx-auto;
+}
+.report-card h1 { @apply text-center text-lg font-bold; }
+.report-card h2 { @apply text-center text-base font-semibold; }
+.report-card table { @apply w-full border-collapse mt-4; }
+.report-card th, .report-card td {
+  @apply border border-gray-400 px-2 py-1 text-sm;
+}
+.report-card th { @apply bg-gray-100 font-bold text-center; }
+.report-card .signature-line {
+  border-top: 1px solid black;
+  margin-top: 3rem;
+  padding-top: 0.25rem;
+}
+
+@page { margin: 15mm; }
