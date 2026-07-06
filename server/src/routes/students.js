@@ -1,6 +1,8 @@
 import { Router } from 'express'
+import bcrypt from 'bcryptjs'
 import pool from '../db.js'
 import { authenticate } from '../middleware/auth.js'
+import { sendWelcomeEmail } from '../email.js'
 
 pool.query('ALTER TABLE eleves ADD COLUMN idCycle INT NULL').catch(() => {})
 
@@ -155,13 +157,28 @@ router.patch('/:id/toggle-active', authenticate, async (req, res) => {
 
 router.post('/enroll', authenticate, async (req, res) => {
   try {
-    const { matricule, idSalle, idAcademi } = req.body
+    const { matricule, idSalle, idAcademi, parent } = req.body
     const idAdmin = req.user?.id || 1
     const [existing] = await pool.query('SELECT * FROM Frequente WHERE matricule = ? AND idAcademi = ?', [matricule, idAcademi])
     if (existing.length) {
       await pool.query('UPDATE Frequente SET idSalle = ?, idAdmin = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, idAdmin, matricule, idAcademi])
     } else {
       await pool.query('INSERT INTO Frequente (idSalle, idAcademi, matricule, idAdmin) VALUES (?, ?, ?, ?)', [idSalle, idAcademi, matricule, idAdmin])
+    }
+    if (parent && parent.nom && parent.email) {
+      const [persResult] = await pool.query(
+        "INSERT INTO personnes (nom, prenom, mobile, type_personne) VALUES (?, ?, ?, 'PARENT')",
+        [parent.nom, parent.prenom || '', parent.mobile || '']
+      )
+      const idPers = persResult.insertId
+      const hashed = await bcrypt.hash(parent.password || 'password', 10)
+      const [userResult] = await pool.query(
+        'INSERT INTO users (name, email, password, role, is_active) VALUES (?, ?, ?, ?, 1)',
+        [`${parent.prenom || ''} ${parent.nom}`.trim(), parent.email, hashed, 'PARENT']
+      )
+      await pool.query('UPDATE personnes SET user_id = ? WHERE id_pers = ?', [userResult.insertId, idPers])
+      await pool.query('INSERT INTO Parents (idPers, matricule) VALUES (?, ?)', [idPers, matricule])
+      sendWelcomeEmail(parent.email, parent.password || 'password', `${parent.prenom || ''} ${parent.nom}`.trim(), 'parent').catch(console.error)
     }
     res.json({ success: true })
   } catch (err) {

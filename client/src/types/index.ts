@@ -42,6 +42,8 @@ export interface Teacher {
   nom: string;
   prenom: string;
   mobile: string;
+  email?: string;
+  password?: string;
   cours: Course[];
   actif: boolean;
   idClasse?: number;

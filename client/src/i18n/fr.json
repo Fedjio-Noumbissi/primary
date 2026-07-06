@@ -29,6 +29,8 @@
   "auth.parent": "Parent",
   "auth.loginBtn": "Se connecter",
   "auth.invalid": "Identifiants invalides",
+  "auth.networkError": "Erreur réseau — Vérifie que le serveur est démarré",
+  "auth.serverError": "Erreur serveur — Contacte l'administrateur",
 
   "common.add": "Ajouter",
   "common.edit": "Modifier",

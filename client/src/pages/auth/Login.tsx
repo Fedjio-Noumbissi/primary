@@ -20,15 +20,21 @@ export default function Login() {
     setLoading(true)
     try {
       const res = await authAPI.login(email, password)
-      // Utiliser le typePersonne retourné par le serveur (basé sur le rôle en BDD)
       const serverRole = (res.data.typePersonne ?? role) as 1 | 2 | 3 | 4
       const user = { ...res.data, typePersonne: serverRole }
       login(user)
       const path = serverRole === 1 ? '/admin/dashboard' : serverRole === 2 ? '/teacher/dashboard' : '/parent/dashboard'
-      navigate(path)
       toast.success(t('toast.success'))
-    } catch {
-      toast.error(t('auth.invalid'))
+      window.location.href = path
+    } catch (err: any) {
+      console.error('Login error:', err)
+      if (err.code === 'ERR_NETWORK' || !err.response) {
+        toast.error(t('auth.networkError'))
+      } else if (err.response?.status === 401) {
+        toast.error(t('auth.invalid'))
+      } else {
+        toast.error(t('auth.serverError'))
+      }
     } finally {
       setLoading(false)
     }

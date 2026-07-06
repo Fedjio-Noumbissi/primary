@@ -29,6 +29,8 @@
   "auth.parent": "Parent",
   "auth.loginBtn": "Sign In",
   "auth.invalid": "Invalid credentials",
+  "auth.networkError": "Network error — Make sure the server is running",
+  "auth.serverError": "Server error — Contact administrator",
 
   "common.add": "Add",
   "common.edit": "Edit",

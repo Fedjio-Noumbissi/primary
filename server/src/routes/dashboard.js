@@ -28,7 +28,7 @@ router.get('/stats', async (_req, res) => {
 router.get('/teacher/:idPers', async (req, res) => {
   try {
     const { idPers } = req.params
-    const [[teacher]] = await pool.query('SELECT * FROM Enseignant WHERE id_pers = ?', [idPers])
+    const [[teacher]] = await pool.query('SELECT e.*, p.nom, p.prenom FROM enseignants e LEFT JOIN personnes p ON p.id_pers = e.id_pers WHERE e.id_pers = ?', [idPers])
     const [cours] = await pool.query('SELECT * FROM Cours WHERE idEnseignant = ?', [teacher?.id_enseignant || 0])
     res.json({ teacher, cours })
   } catch (err) { res.status(500).json({ error: err.message }) }

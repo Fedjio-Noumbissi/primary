@@ -118,7 +118,7 @@ export const studentAPI = {
   toggleActive: (id: number) => api.patch<Student>(`/students/${id}/toggle-active`),
   getGrades: (id: number) => api.get<Evaluation[]>(`/students/${id}/grades`),
   getPayments: (id: number) => api.get<Paiement[]>(`/students/${id}/payments`),
-  enroll: (data: { matricule: number; idSalle: number; idAcademi: number }) => api.post('/students/enroll', data),
+  enroll: (data: { matricule: number; idSalle: number; idAcademi: number; parent?: { nom: string; prenom: string; email: string; password: string; mobile: string } }) => api.post('/students/enroll', data),
 }
 
 export const teacherAPI = {

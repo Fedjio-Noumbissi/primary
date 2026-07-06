@@ -12,6 +12,8 @@ export default function EnrollmentForm() {
   const [salles, setSalles] = useState<Salle[]>([])
   const [annees, setAnnees] = useState<AnneeAcademique[]>([])
   const [form, setForm] = useState({ matricule: 0, idSalle: 0, idAcademi: 0 })
+  const [createParent, setCreateParent] = useState(false)
+  const [parent, setParent] = useState({ nom: '', prenom: '', email: '', password: 'password', mobile: '' })
 
   useEffect(() => {
     Promise.all([
@@ -28,7 +30,10 @@ export default function EnrollmentForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await studentAPI.enroll(form)
+      await studentAPI.enroll({
+        ...form,
+        parent: createParent ? parent : undefined,
+      })
       toast.success(t('toast.saved'))
       navigate('/admin/students')
     } catch {
@@ -37,14 +42,20 @@ export default function EnrollmentForm() {
   }
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('student.enrollment')}</h1>
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">{t('student.nom')}</label>
           <select
             value={form.matricule}
-            onChange={(e) => setForm({ ...form, matricule: parseInt(e.target.value) })}
+            onChange={(e) => {
+              const s = students.find(st => st.matricule === parseInt(e.target.value))
+              setForm({ ...form, matricule: parseInt(e.target.value) })
+              if (s && !parent.nom) {
+                setParent(prev => ({ ...prev, nom: s.nom, prenom: s.prenom }))
+              }
+            }}
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
           >
@@ -84,6 +95,51 @@ export default function EnrollmentForm() {
             ))}
           </select>
         </div>
+
+        <hr className="border-gray-200" />
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="createParent"
+            checked={createParent}
+            onChange={(e) => setCreateParent(e.target.checked)}
+            className="rounded border-gray-300 text-cameroon-green focus:ring-cameroon-green"
+          />
+          <label htmlFor="createParent" className="text-sm font-medium text-gray-700">
+            Créer un compte parent
+          </label>
+        </div>
+
+        {createParent && (
+          <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 className="font-semibold text-gray-900 text-sm">Informations du parent</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                <input type="text" value={parent.nom} onChange={(e) => setParent({ ...parent, nom: e.target.value })} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                <input type="text" value={parent.prenom} onChange={(e) => setParent({ ...parent, prenom: e.target.value })} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input type="email" value={parent.email} onChange={(e) => setParent({ ...parent, email: e.target.value })} required placeholder="parent@email.com" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                <input type="password" value={parent.password} onChange={(e) => setParent({ ...parent, password: e.target.value })} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                <input type="text" value={parent.mobile} onChange={(e) => setParent({ ...parent, mobile: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <button type="submit" className="px-6 py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium hover:bg-cameroon-green-light transition">

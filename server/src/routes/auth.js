@@ -27,7 +27,7 @@ router.post('/login', async (req, res) => {
 
     const roleMap = { admin: 1, Admin: 1, ADMIN: 1, ENSEIGNANT: 2, enseignant: 2, PARENT: 3, parent: 3 }
     // Priorité : type_personne de la table personnes, sinon rôle de la table users
-    const typePersonne = user.type_personne || roleMap[user.role] || 1
+    const typePersonne = roleMap[user.type_personne] || roleMap[user.role] || 1
 
     const token = jwt.sign(
       { id: user.id, idPers: user.id_pers, typePersonne },

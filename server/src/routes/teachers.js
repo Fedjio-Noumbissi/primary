@@ -1,6 +1,8 @@
 import { Router } from 'express'
+import bcrypt from 'bcryptjs'
 import pool from '../db.js'
 import { authenticate } from '../middleware/auth.js'
+import { sendWelcomeEmail } from '../email.js'
 
 const router = Router()
 
@@ -40,7 +42,7 @@ router.get('/', authenticate, async (req, res) => {
 
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { nom, prenom, mobile } = req.body
+    const { nom, prenom, mobile, email, password } = req.body
     const [persResult] = await pool.query(
       "INSERT INTO personnes (nom, prenom, mobile, type_personne) VALUES (?, ?, ?, 'ENSEIGNANT')",
       [nom, prenom || '', mobile || '']
@@ -50,16 +52,27 @@ router.post('/', authenticate, async (req, res) => {
       'INSERT INTO enseignants (id_pers, actif) VALUES (?, 1)',
       [idPers]
     )
+    const hashed = await bcrypt.hash(password || 'password', 10)
+    const [userResult] = await pool.query(
+      'INSERT INTO users (name, email, password, role, is_active) VALUES (?, ?, ?, ?, 1)',
+      [`${prenom || ''} ${nom}`.trim(), email, hashed, 'ENSEIGNANT']
+    )
+    await pool.query('UPDATE personnes SET user_id = ? WHERE id_pers = ?', [userResult.insertId, idPers])
+    sendWelcomeEmail(email, password || 'password', `${prenom || ''} ${nom}`.trim(), 'enseignant').catch(console.error)
     res.status(201).json({
       idEnseignant: result.insertId,
       idPers,
       nom,
       prenom: prenom || '',
       mobile: mobile || '',
-      cours: [],
+      email,
+      password: '',
+      typePersonne: 2,
+      token: '',
       actif: true,
       idClasse: null,
       classeLibelle: null,
+      cours: [],
     })
   } catch (err) {
     console.error(err)
@@ -70,11 +83,18 @@ router.post('/', authenticate, async (req, res) => {
 router.put('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params
-    const { nom, prenom, mobile } = req.body
-    const [rows] = await pool.query('SELECT id_pers FROM enseignants WHERE id_enseignant = ?', [id])
+    const { nom, prenom, mobile, email, password } = req.body
+    const [rows] = await pool.query('SELECT e.id_pers, p.user_id FROM enseignants e LEFT JOIN personnes p ON p.id_pers = e.id_pers WHERE e.id_enseignant = ?', [id])
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' })
-    const idPers = rows[0].id_pers
+    const { id_pers: idPers, user_id: userId } = rows[0]
     await pool.query('UPDATE personnes SET nom = ?, prenom = ?, mobile = ? WHERE id_pers = ?', [nom, prenom || '', mobile || '', idPers])
+    if (userId) {
+      if (email) await pool.query('UPDATE users SET name = ?, email = ? WHERE id = ?', [`${prenom || ''} ${nom}`.trim(), email, userId])
+      if (password) {
+        const hashed = await bcrypt.hash(password, 10)
+        await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, userId])
+      }
+    }
     const [cls] = await pool.query(
       'SELECT idClasse, libelle AS classeLibelle FROM Classe WHERE titulaire = ? AND isDelete = 0',
       [id]
@@ -85,10 +105,14 @@ router.put('/:id', authenticate, async (req, res) => {
       nom,
       prenom: prenom || '',
       mobile: mobile || '',
-      cours: [],
+      email: email || '',
+      password: '',
+      typePersonne: 2,
+      token: '',
       actif: true,
       idClasse: cls[0]?.idClasse || null,
       classeLibelle: cls[0]?.classeLibelle || null,
+      cours: [],
     })
   } catch (err) {
     console.error(err)
