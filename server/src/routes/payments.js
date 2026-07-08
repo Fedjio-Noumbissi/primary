@@ -285,8 +285,8 @@ router.put('/modes/:id', async (req, res) => {
 
 router.delete('/modes/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM Mode WHERE idMode = ?', [req.params.id])
-    res.json({ message: 'Deleted' })
+    await pool.query('UPDATE Mode SET actif = 0 WHERE idMode = ?', [req.params.id])
+    res.json({ message: 'Désactivé' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

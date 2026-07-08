@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { paymentAPI, classAPI } from '../../services/api'
-import { Scolarite, Tranche, Mode, Paiement, Cycle } from '../../types'
+import { paymentAPI, classAPI, studentAPI, academicAPI } from '../../services/api'
+import { Scolarite, Tranche, Mode, Paiement, Cycle, Student, AnneeAcademique } from '../../types'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import DataTable from '../../components/DataTable'
 import Modal from '../../components/Modal'
@@ -16,8 +16,12 @@ export default function PaymentsPage() {
   const [modes, setModes] = useState<Mode[]>([])
   const [paiements, setPaiements] = useState<Paiement[]>([])
   const [loading, setLoading] = useState(true)
+  const [students, setStudents] = useState<Student[]>([])
+  const [activeAnnee, setActiveAnnee] = useState<AnneeAcademique | null>(null)
   const [paieModal, setPaieModal] = useState(false)
-  const [paieForm, setPaieForm] = useState({ matricule: 0, idAca: 2, montant: 0, idMode: 1, datePaie: '' })
+  const [paieForm, setPaieForm] = useState({ matricule: 0, idAca: 0, montant: 0, idMode: 1, datePaie: '', idPers: 0 })
+  const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentLabel, setSelectedStudentLabel] = useState('')
 
   const [cycles, setCycles] = useState<Cycle[]>([])
   const [tuitionModal, setTuitionModal] = useState(false)
@@ -45,12 +49,19 @@ export default function PaymentsPage() {
       paymentAPI.getModes(),
       paymentAPI.getPaiements(),
       classAPI.getCycles(),
-    ]).then(([sc, tr, mo, pa, cy]) => {
+      studentAPI.getAll(),
+      academicAPI.getAnnees(),
+    ]).then(([sc, tr, mo, pa, cy, st, an]) => {
       setScolarites(sc.data)
       setTranches(tr.data)
       setModes(mo.data)
       setPaiements(pa.data)
       setCycles(cy.data)
+      setStudents(st.data)
+      const active = an.data.find((a: AnneeAcademique) => a.actif)
+      setActiveAnnee(active || an.data[0] || null)
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      setPaieForm(prev => ({ ...prev, idAca: active?.idAnnee || an.data[0]?.idAnnee || 0, idPers: user.idPers || 1 }))
       setLoading(false)
     })
   }
@@ -87,7 +98,7 @@ export default function PaymentsPage() {
     }))
     try {
       if (editingTuition) {
-        await paymentAPI.updateScolarite(editingTuition.idScolante, tuitionForm)
+        await paymentAPI.updateScolarite(editingTuition.idScolarite, tuitionForm)
         toast.success(t('toast.saved'))
       } else {
         await paymentAPI.createScolariteWithTranches({
@@ -124,7 +135,7 @@ export default function PaymentsPage() {
     if (!modeLibelle.trim()) return
     try {
       if (editingMode) {
-        await paymentAPI.updateMode(editingMode.idMode, { libelle: modeLibelle })
+        await paymentAPI.updateMode(editingMode.idMode, { libelle: modeLibelle, actif: 1 })
       } else {
         await paymentAPI.createMode({ libelle: modeLibelle })
       }
@@ -182,6 +193,14 @@ export default function PaymentsPage() {
     { key: 'datePaie', label: t('payment.date'), render: (p: Paiement) => formatDate(p.datePaie) },
   ]
 
+  const openPaieModal = () => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    setPaieForm({ matricule: 0, idAca: activeAnnee?.idAnnee || 0, montant: 0, idMode: 1, datePaie: '', idPers: user.idPers || 1 })
+    setStudentSearch('')
+    setSelectedStudentLabel('')
+    setPaieModal(true)
+  }
+
   const openReceipt = (id: number) => {
     window.open(`/api/paiements/${id}/receipt`, '_blank')
   }
@@ -194,7 +213,7 @@ export default function PaymentsPage() {
           <button onClick={openTuitionModal} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition">
             <Plus size={16} /> {t('payment.addTuition')}
           </button>
-          <button onClick={() => setPaieModal(true)} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
+          <button onClick={openPaieModal} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
             <Plus size={16} /> {t('payment.receive')}
           </button>
         </div>
@@ -205,7 +224,7 @@ export default function PaymentsPage() {
           <h3 className="font-semibold mb-4">{t('payment.tuition')}</h3>
           {scolarites.length === 0 && <p className="text-sm text-gray-400">{t('common.noData')}</p>}
           {scolarites.map((s) => (
-            <div key={s.idScolante} className="px-3 py-2 bg-gray-50 rounded-lg text-sm mb-2 group">
+            <div key={s.idScolarite} className="px-3 py-2 bg-gray-50 rounded-lg text-sm mb-2 group">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="font-medium text-xs text-gray-500 mb-1">{s.cycle || `Cycle #${s.idCycle}`}</p>
@@ -215,7 +234,7 @@ export default function PaymentsPage() {
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
                   <button onClick={() => openEditTuitionModal(s)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded" title="Modifier"><Pencil size={14} /></button>
-                  <button onClick={() => deleteScolarite(s.idScolante)} className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="Supprimer"><Trash2 size={14} /></button>
+                  <button onClick={() => deleteScolarite(s.idScolarite)} className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="Supprimer"><Trash2 size={14} /></button>
                 </div>
               </div>
             </div>
@@ -228,11 +247,17 @@ export default function PaymentsPage() {
             <button onClick={() => openModeModal()} className="text-blue-600 hover:bg-blue-50 p-1 rounded" title="Ajouter"><Plus size={16} /></button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {modes.map((m) => (
+            {modes.filter(m => m.actif).map((m) => (
               <span key={m.idMode} className="group inline-flex items-center gap-1 px-3 py-1.5 bg-gray-50 rounded-lg text-sm">
                 {m.libelle}
                 <button onClick={() => openModeModal(m)} className="text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition" title="Modifier"><Pencil size={12} /></button>
                 <button onClick={() => deleteMode(m.idMode)} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition" title="Supprimer"><Trash2 size={12} /></button>
+              </span>
+            ))}
+            {modes.filter(m => !m.actif).map((m) => (
+              <span key={m.idMode} className="group inline-flex items-center gap-1 px-3 py-1.5 bg-red-50 rounded-lg text-sm line-through text-gray-400">
+                {m.libelle}
+                <button onClick={() => openModeModal(m)} className="text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition" title="Réactiver"><Pencil size={12} /></button>
               </span>
             ))}
           </div>
@@ -274,7 +299,46 @@ export default function PaymentsPage() {
       </div>
 
       <Modal open={paieModal} onClose={() => setPaieModal(false)} title={t('payment.receive')}>
-        <form onSubmit={async (e) => { e.preventDefault(); try { await paymentAPI.createPaiement(paieForm); toast.success(t('toast.saved')); setPaieModal(false); setPaieForm({ matricule: 0, idAca: 2, montant: 0, idMode: 1, datePaie: '' }); load() } catch { toast.error(t('toast.error')) } }} className="space-y-4">
+        <form onSubmit={async (e) => {
+          e.preventDefault()
+          if (!paieForm.matricule) { toast.error('Veuillez sélectionner un élève'); return }
+          try {
+            await paymentAPI.createPaiement(paieForm)
+            toast.success(t('toast.saved'))
+            setPaieModal(false)
+            const user = JSON.parse(localStorage.getItem('user') || '{}')
+            setPaieForm({ matricule: 0, idAca: activeAnnee?.idAnnee || 0, montant: 0, idMode: 1, datePaie: '', idPers: user.idPers || 1 })
+            setSelectedStudentLabel('')
+            setStudentSearch('')
+            load()
+          } catch { toast.error(t('toast.error')) }
+        }} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Élève</label>
+            <input type="text" placeholder="Rechercher un élève..." value={studentSearch}
+              onChange={(e) => { setStudentSearch(e.target.value); setSelectedStudentLabel(''); setPaieForm({ ...paieForm, matricule: 0 }) }}
+              className="w-full px-3 py-2 border rounded-lg text-sm" />
+            {studentSearch && !selectedStudentLabel && (
+              <div className="mt-1 max-h-40 overflow-y-auto border rounded-lg text-sm">
+                {students
+                  .filter(s => `${s.nom} ${s.prenom} ${s.matricule}`.toLowerCase().includes(studentSearch.toLowerCase()))
+                  .slice(0, 20)
+                  .map(s => (
+                    <button key={s.matricule} type="button"
+                      onClick={() => { setSelectedStudentLabel(`${s.nom} ${s.prenom} (${s.matricule})`); setStudentSearch(''); setPaieForm({ ...paieForm, matricule: s.matricule }) }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-100 border-b last:border-0">
+                      {s.nom} {s.prenom} <span className="text-gray-400">#{s.matricule}</span>
+                    </button>
+                  ))}
+                {students.filter(s => `${s.nom} ${s.prenom} ${s.matricule}`.toLowerCase().includes(studentSearch.toLowerCase())).length === 0 && (
+                  <p className="px-3 py-2 text-gray-400">Aucun élève trouvé</p>
+                )}
+              </div>
+            )}
+            {selectedStudentLabel && (
+              <p className="mt-1 text-sm text-cameroon-green font-medium">{selectedStudentLabel}</p>
+            )}
+          </div>
           <div>
             <label className="block text-sm font-medium mb-1">{t('payment.montant')}</label>
             <input type="number" min={0} value={paieForm.montant || ''} onChange={(e) => setPaieForm({ ...paieForm, montant: parseFloat(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm" />
@@ -282,7 +346,7 @@ export default function PaymentsPage() {
           <div>
             <label className="block text-sm font-medium mb-1">{t('payment.mode')}</label>
             <select value={paieForm.idMode} onChange={(e) => setPaieForm({ ...paieForm, idMode: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">
-              {modes.map((m) => <option key={m.idMode} value={m.idMode}>{m.libelle}</option>)}
+              {modes.filter(m => m.actif).map((m) => <option key={m.idMode} value={m.idMode}>{m.libelle}</option>)}
             </select>
           </div>
           <div>

@@ -451,7 +451,7 @@ export default function StudentForm() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100">
                   <option value="">{t('common.select')}</option>
                   {filteredScolarites.map(sc => (
-                    <option key={sc.idScolante} value={sc.idScolante}>
+                    <option key={sc.idScolarite} value={sc.idScolarite}>
                       {isFr ? 'Inscription' : 'Registration'}: {sc.inscription} FCFA — {isFr ? 'Pension' : 'Tuition'}: {sc.pension} FCFA
                     </option>
                   ))}

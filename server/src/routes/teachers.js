@@ -54,8 +54,8 @@ router.post('/', authenticate, async (req, res) => {
     )
     const hashed = await bcrypt.hash(password || 'password', 10)
     const [userResult] = await pool.query(
-      'INSERT INTO users (name, email, password, role, is_active) VALUES (?, ?, ?, ?, 1)',
-      [`${prenom || ''} ${nom}`.trim(), email, hashed, 'ENSEIGNANT']
+      'INSERT INTO users (nom, prenom, email, password_hash, role, is_active, telephone) VALUES (?, ?, ?, ?, ?, 1, ?)',
+      [nom, prenom || '', email, hashed, 'ENSEIGNANT', mobile || null]
     )
     await pool.query('UPDATE personnes SET user_id = ? WHERE id_pers = ?', [userResult.insertId, idPers])
     sendWelcomeEmail(email, password || 'password', `${prenom || ''} ${nom}`.trim(), 'enseignant').catch(console.error)
@@ -89,10 +89,11 @@ router.put('/:id', authenticate, async (req, res) => {
     const { id_pers: idPers, user_id: userId } = rows[0]
     await pool.query('UPDATE personnes SET nom = ?, prenom = ?, mobile = ? WHERE id_pers = ?', [nom, prenom || '', mobile || '', idPers])
     if (userId) {
-      if (email) await pool.query('UPDATE users SET name = ?, email = ? WHERE id = ?', [`${prenom || ''} ${nom}`.trim(), email, userId])
+      await pool.query('UPDATE users SET nom = ?, prenom = ?, telephone = ? WHERE id = ?', [nom, prenom || '', mobile || null, userId])
+      if (email) await pool.query('UPDATE users SET email = ? WHERE id = ?', [email, userId])
       if (password) {
         const hashed = await bcrypt.hash(password, 10)
-        await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, userId])
+        await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashed, userId])
       }
     }
     const [cls] = await pool.query(

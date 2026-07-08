@@ -160,7 +160,7 @@ export interface Rapport {
 }
 
 export interface Scolarite {
-  idScolante: number;
+  idScolarite: number;
   inscription: number;
   pension: number;
   nbreTranche: number;
@@ -175,7 +175,7 @@ export interface Tranche {
   delai_mois: string;
   delai_jour: string;
   date_limite?: string;
-  idScolante: number;
+  idScolarite: number;
   actif: boolean;
 }
 

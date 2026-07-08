@@ -114,14 +114,14 @@ export const mockEvaluations: Evaluation[] = mockStudents.slice(0, 24).flatMap((
 ])
 
 export const mockScolarites: Scolarite[] = [
-  { idScolante: 1, inscription: 15000, pension: 75000, nbreTranche: 3, idCycle: 1 },
-  { idScolante: 2, inscription: 20000, pension: 85000, nbreTranche: 3, idCycle: 2 },
+  { idScolarite: 1, inscription: 15000, pension: 75000, nbreTranche: 3, idCycle: 1 },
+  { idScolarite: 2, inscription: 20000, pension: 85000, nbreTranche: 3, idCycle: 2 },
 ]
 
 export const mockTranches: Tranche[] = [
-  { idTranche: 1, libelle: '1ère Tranche', montant: 25000, delai_mois: '09', delai_jour: '15', idScolante: 1, actif: true },
-  { idTranche: 2, libelle: '2e Tranche', montant: 25000, delai_mois: '12', delai_jour: '15', idScolante: 1, actif: true },
-  { idTranche: 3, libelle: '3e Tranche', montant: 25000, delai_mois: '03', delai_jour: '15', idScolante: 1, actif: true },
+  { idTranche: 1, libelle: '1ère Tranche', montant: 25000, delai_mois: '09', delai_jour: '15', idScolarite: 1, actif: true },
+  { idTranche: 2, libelle: '2e Tranche', montant: 25000, delai_mois: '12', delai_jour: '15', idScolarite: 1, actif: true },
+  { idTranche: 3, libelle: '3e Tranche', montant: 25000, delai_mois: '03', delai_jour: '15', idScolarite: 1, actif: true },
 ]
 
 export const mockModes: Mode[] = [

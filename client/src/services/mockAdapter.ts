@@ -346,13 +346,13 @@ mock.onGet(/\/reports\/(\d+)\/(\d+)/).reply((config) => {
 mock.onGet('/scolarites').reply(() => [200, data.mockScolarites])
 mock.onPost('/scolarites').reply((config) => {
   const body = JSON.parse(config.data || '{}')
-  const s = { ...body, idScolante: data.mockScolarites.length + 1 }
+  const s = { ...body, idScolarite: data.mockScolarites.length + 1 }
   data.mockScolarites.push(s)
   return [201, s]
 })
 mock.onGet('/tranches').reply((config) => {
   let res = data.mockTranches
-  if (config.params?.idScolante) res = res.filter((t) => t.idScolante === config.params.idScolante)
+  if (config.params?.idScolante) res = res.filter((t) => t.idScolarite === config.params.idScolante)
   return [200, res]
 })
 mock.onPost('/tranches').reply((config) => {
