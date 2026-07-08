@@ -34,6 +34,10 @@ export interface Student {
   cycle?: string;
   idCycle?: number;
   salle?: string;
+  idScolarite?: number;
+  inscription?: number | null;
+  pension?: number | null;
+  nbreTranche?: number | null;
 }
 
 export interface Teacher {
@@ -63,6 +67,7 @@ export interface Classe {
   cycle?: string;
   titulaire?: number;
   titulaireNom?: string;
+  isDelete?: number;
 }
 
 export interface Salle {

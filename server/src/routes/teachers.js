@@ -54,8 +54,8 @@ router.post('/', authenticate, async (req, res) => {
     )
     const hashed = await bcrypt.hash(password || 'password', 10)
     const [userResult] = await pool.query(
-      'INSERT INTO users (nom, prenom, email, password_hash, role, is_active, telephone) VALUES (?, ?, ?, ?, ?, 1, ?)',
-      [nom, prenom || '', email, hashed, 'ENSEIGNANT', mobile || null]
+      'INSERT INTO users (nom, prenom, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+      [nom, prenom, email, hashed, 'ENSEIGNANT']
     )
     await pool.query('UPDATE personnes SET user_id = ? WHERE id_pers = ?', [userResult.insertId, idPers])
     sendWelcomeEmail(email, password || 'password', `${prenom || ''} ${nom}`.trim(), 'enseignant').catch(console.error)

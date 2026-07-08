@@ -82,26 +82,54 @@ export default function StudentProfile() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <CreditCard size={18} className="text-cameroon-green" />
-            {t('student.payments')}
-          </h3>
-          {payments.length === 0 ? (
-            <p className="text-sm text-gray-400">{t('common.noData')}</p>
-          ) : (
-            <div className="space-y-2">
-              {payments.map((p) => (
-                <div key={p.idPaie} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
-                  <div>
-                    <span className="font-medium">{formatCurrency(p.montant)}</span>
-                    <span className="text-gray-400 ml-2">{p.mode}</span>
-                  </div>
-                  <span className="text-gray-400">{formatDate(p.datePaie)}</span>
+        <div className="space-y-6">
+          {student.inscription != null && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <CreditCard size={18} className="text-cameroon-green" />
+                {t('payment.tuition') || 'Frais de scolarité'}
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">Inscription</span>
+                  <span className="font-semibold">{formatCurrency(student.inscription)}</span>
                 </div>
-              ))}
+                <div className="flex justify-between px-3 py-2 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">Pension annuelle</span>
+                  <span className="font-semibold">{formatCurrency(student.pension || 0)}</span>
+                </div>
+                <div className="flex justify-between px-3 py-2 bg-cameroon-green/5 rounded-lg font-bold">
+                  <span>Total</span>
+                  <span className="text-cameroon-green">{formatCurrency((student.inscription || 0) + (student.pension || 0))}</span>
+                </div>
+                {student.nbreTranche && (
+                  <p className="text-xs text-gray-400 text-right">{student.nbreTranche} tranches</p>
+                )}
+              </div>
             </div>
           )}
+
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <CreditCard size={18} className="text-cameroon-green" />
+              {t('student.payments')}
+            </h3>
+            {payments.length === 0 ? (
+              <p className="text-sm text-gray-400">{t('common.noData')}</p>
+            ) : (
+              <div className="space-y-2">
+                {payments.map((p) => (
+                  <div key={p.idPaie} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
+                    <div>
+                      <span className="font-medium">{formatCurrency(p.montant)}</span>
+                      <span className="text-gray-400 ml-2">{p.mode}</span>
+                    </div>
+                    <span className="text-gray-400">{formatDate(p.datePaie)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

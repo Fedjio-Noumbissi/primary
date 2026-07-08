@@ -28,13 +28,16 @@ const ENTITY_MAP = {
 
 pool.query(`CREATE TABLE IF NOT EXISTS AuditLogs (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  idAdmin INT NULL,
+  userId INT NULL,
+  userType VARCHAR(20) DEFAULT 'admin',
+  role VARCHAR(50) DEFAULT 'admin',
   action VARCHAR(50) NOT NULL,
-  entity VARCHAR(100) NOT NULL,
-  entityId INT NULL,
-  details JSON NULL,
-  ip_address VARCHAR(45) NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  resource VARCHAR(100) NOT NULL,
+  resourceId VARCHAR(50) NULL,
+  ip VARCHAR(45) NULL,
+  meta JSON NULL,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
 )`).catch(() => {})
 
 function sanitizeBody(body) {
@@ -66,14 +69,14 @@ export function auditMiddleware(req, res, next) {
   res.end = function (data, encoding, callback) {
     const parts = req.path.split('/').filter(Boolean)
     const entityKey = parts[0] || 'unknown'
-    const entity = ENTITY_MAP[entityKey] || entityKey
+    const resource = ENTITY_MAP[entityKey] || entityKey
     const actionMap = { POST: 'CREATE', PUT: 'UPDATE', PATCH: 'UPDATE', DELETE: 'DELETE' }
     const action = actionMap[req.method] || req.method
 
     if (res.statusCode < 400) {
-      let entityId = null
-      if (req.params.id) entityId = parseInt(req.params.id)
-      else if (req.body) entityId = extractId(req.body)
+      let resourceId = null
+      if (req.params.id) resourceId = req.params.id
+      else if (req.body) resourceId = String(extractId(req.body) ?? '')
 
       const details = {
         body: sanitizeBody(req.body),
@@ -82,9 +85,9 @@ export function auditMiddleware(req, res, next) {
       }
 
       pool.query(
-        'INSERT INTO AuditLogs (idAdmin, action, entity, entityId, details, ip_address) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.user?.id || null, action, entity, entityId, JSON.stringify(details), req.ip || req.socket?.remoteAddress || null]
-      ).catch((err) => console.error('Audit log error:', err.message))
+        'INSERT INTO AuditLogs (userId, userType, role, action, resource, resourceId, ip, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [req.user?.id || null, 'admin', 'admin', action, resource, resourceId, req.ip || req.socket?.remoteAddress || null, JSON.stringify(details)]
+      ).catch(() => {})
     }
 
     return _end(data, encoding, callback)

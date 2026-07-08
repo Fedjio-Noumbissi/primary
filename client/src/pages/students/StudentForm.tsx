@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { studentAPI, classAPI, academicAPI, paymentAPI, uploadAPI, parentAPI } from '../../services/api'
 import { LANGUAGES, SEXE_OPTIONS } from '../../utils/constants'
-import { Cycle, Salle, AnneeAcademique, Scolarite, Student } from '../../types'
+import { Cycle, Salle, AnneeAcademique, Scolarite, Tranche, Student } from '../../types'
 import toast from 'react-hot-toast'
 import ReactCrop, { type Crop, makeAspectCrop, centerCrop, type PixelCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
-import { Check, ChevronLeft, ChevronRight, Upload, Image as ImageIcon, User, Users, School, Camera, Loader2, Link as LinkIcon, UserPlus } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Upload, Image as ImageIcon, User, Users, School, Camera, Loader2, Link as LinkIcon, UserPlus, Eye, EyeOff } from 'lucide-react'
 import Combobox from '../../components/Combobox'
 
 const STEPS = [
@@ -74,11 +74,14 @@ export default function StudentForm() {
   const [salles, setSalles] = useState<Salle[]>([])
   const [annees, setAnnees] = useState<AnneeAcademique[]>([])
   const [scolarites, setScolarites] = useState<Scolarite[]>([])
+  const [autoScolarite, setAutoScolarite] = useState<Scolarite | null>(null)
+  const [autoTranches, setAutoTranches] = useState<Tranche[]>([])
 
   const [imageSrc, setImageSrc] = useState<string | null>(null)
   const [crop, setCrop] = useState<Crop>()
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [showParentPwd, setShowParentPwd] = useState(false)
   const imgRef = useRef<HTMLImageElement>(null)
   const [dragOver, setDragOver] = useState(false)
 
@@ -110,6 +113,19 @@ export default function StudentForm() {
     }).catch(() => toast.error(t('toast.error')))
   }, [id])
 
+  useEffect(() => {
+    if (!enrollment.idSalle) { setAutoScolarite(null); setAutoTranches([]); return }
+    const salle = salles.find(s => s.idSalle === enrollment.idSalle)
+    if (!salle?.idClasse) return
+    paymentAPI.getScolariteByClasse(salle.idClasse).then(res => {
+      setAutoScolarite(res.data.scolarite)
+      setAutoTranches(res.data.tranches || [])
+      if (res.data.scolarite) {
+        setEnrollment(prev => ({ ...prev, idScolarite: res.data.scolarite!.idScolarite }))
+      }
+    }).catch(() => {})
+  }, [enrollment.idSalle, salles])
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     const newForm = { ...form, [name]: ['sexe', 'idCycle'].includes(name) ? Number(value) : value }
@@ -128,10 +144,6 @@ export default function StudentForm() {
         return true
       })
     : salles
-
-  const filteredScolarites = form.idCycle
-    ? scolarites.filter(sc => sc.idCycle === form.idCycle)
-    : scolarites
 
   const readFile = (file: File) => {
     if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
@@ -229,26 +241,23 @@ export default function StudentForm() {
       const newMatricule = result.data.matricule
 
       const parentPayload = parentMode === 'link' && selectedParent
-        ? { nom: selectedParent.nom, prenom: selectedParent.prenom, email: selectedParent.email || '', password: '', mobile: selectedParent.mobile || '' }
+        ? { idPers: selectedParent.idPers, nom: selectedParent.nom, prenom: selectedParent.prenom, email: selectedParent.email || '', password: '', mobile: selectedParent.mobile || '' }
         : parentMode === 'create' && parent.email
         ? parent
         : undefined
 
-      if (enrollment.idSalle && enrollment.idAcademi) {
-        await studentAPI.enroll({
-          matricule: newMatricule,
-          idSalle: enrollment.idSalle,
-          idAcademi: enrollment.idAcademi,
-          parent: parentPayload,
-        })
-      } else if (parentPayload) {
-        await studentAPI.enroll({
-          matricule: newMatricule,
-          idSalle: 0,
-          idAcademi: 0,
-          parent: parentPayload,
-        })
+      const baseEnroll: Record<string, any> = {
+        matricule: newMatricule,
+        parent: parentPayload,
       }
+      if (enrollment.idSalle && enrollment.idAcademi) {
+        baseEnroll.idSalle = enrollment.idSalle
+        baseEnroll.idAcademi = enrollment.idAcademi
+      }
+      if (enrollment.idScolarite) {
+        baseEnroll.idScolarite = enrollment.idScolarite
+      }
+      await studentAPI.enroll(baseEnroll)
       toast.success(t('toast.saved'))
       navigate('/admin/students')
     } catch {
@@ -406,8 +415,14 @@ export default function StudentForm() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{isFr ? 'Mot de passe' : 'Password'} *</label>
-                      <input type="password" value={parent.password} onChange={e => setParent(p => ({ ...p, password: e.target.value }))} required
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100" />
+                      <div className="relative">
+                        <input type={showParentPwd ? 'text' : 'password'} value={parent.password} onChange={e => setParent(p => ({ ...p, password: e.target.value }))} required
+                          className="w-full pr-10 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100" />
+                        <button type="button" onClick={() => setShowParentPwd(!showParentPwd)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300">
+                          {showParentPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{isFr ? 'Téléphone' : 'Phone'}</label>
@@ -445,18 +460,62 @@ export default function StudentForm() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{isFr ? 'Frais de scolarité' : 'Tuition plan'}</label>
-                <select value={enrollment.idScolarite} onChange={ev => setEnrollment(prev => ({ ...prev, idScolarite: parseInt(ev.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100">
-                  <option value="">{t('common.select')}</option>
-                  {filteredScolarites.map(sc => (
-                    <option key={sc.idScolarite} value={sc.idScolarite}>
-                      {isFr ? 'Inscription' : 'Registration'}: {sc.inscription} FCFA — {isFr ? 'Pension' : 'Tuition'}: {sc.pension} FCFA
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {autoScolarite ? (
+                <div className="bg-cameroon-green/5 border border-cameroon-green/20 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {isFr ? 'Frais de scolarité' : 'Tuition plan'}
+                    </span>
+                    <span className="text-xs bg-cameroon-green text-white px-2 py-0.5 rounded">
+                      {cycles.find(c => c.idCycle === autoScolarite.idCycle)?.libelle || ''}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="bg-white dark:bg-slate-700 rounded-lg p-3">
+                      <span className="text-gray-500 dark:text-slate-400 text-xs">{isFr ? 'Inscription' : 'Registration'}</span>
+                      <p className="font-semibold text-gray-900 dark:text-white">{autoScolarite.inscription.toLocaleString()} FCFA</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-700 rounded-lg p-3">
+                      <span className="text-gray-500 dark:text-slate-400 text-xs">{isFr ? 'Pension annuelle' : 'Annual tuition'}</span>
+                      <p className="font-semibold text-gray-900 dark:text-white">{autoScolarite.pension.toLocaleString()} FCFA</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold">
+                    <span className="text-gray-700 dark:text-slate-300">{isFr ? 'Total' : 'Total'}</span>
+                    <span className="text-cameroon-green">{(autoScolarite.inscription + autoScolarite.pension).toLocaleString()} FCFA</span>
+                  </div>
+                  {autoTranches.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mb-2">
+                        {isFr ? 'Échéancier de paiement' : 'Payment schedule'} ({autoScolarite.nbreTranche}x)
+                      </p>
+                      <div className="space-y-1.5">
+                        {autoTranches.map((t, i) => (
+                          <div key={t.idTranche || i} className="flex items-center justify-between text-xs bg-white dark:bg-slate-700 rounded px-3 py-1.5">
+                            <span className="text-gray-600 dark:text-slate-300">{t.libelle}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="font-medium text-gray-900 dark:text-white">{t.montant.toLocaleString()} FCFA</span>
+                              {t.delai_mois && <span className="text-gray-400">limite: {t.delai_jour}/{t.delai_mois}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>{isFr ? 'Sélectionné automatiquement' : 'Auto-selected'}</span>
+                    <span className="font-medium">{autoScolarite.nbreTranche} tranche(s)</span>
+                  </div>
+                </div>
+              ) : enrollment.idSalle ? (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-300">
+                  {isFr ? 'Aucun plan tarifaire trouvé pour cette classe' : 'No tuition plan found for this class'}
+                </div>
+              ) : (
+                <div className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4 text-sm text-gray-400 italic text-center">
+                  {isFr ? 'Sélectionnez une salle/classe pour voir les frais' : 'Select a room/class to see tuition fees'}
+                </div>
+              )}
             </div>
           )}
 

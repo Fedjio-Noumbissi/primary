@@ -175,6 +175,8 @@ export default function StudentList() {
     toast.success(`Exporté ${toExport.length} élève(s)`)
   }
 
+  function formatCFA(n: number) { return n.toLocaleString() + ' FCFA' }
+
   const columns = [
     { key: 'matricule', label: t('student.matricule'), render: (s: Student) => <span className="font-mono">#{s.matricule}</span> },
     { key: 'nom', label: t('student.nom'), render: (s: Student) => <span className="font-medium">{s.nom} {s.prenom}</span> },
@@ -183,6 +185,11 @@ export default function StudentList() {
     { key: 'langue', label: t('student.langue') },
     { key: 'classe', label: t('student.classe'), render: (s: Student) => s.classe || '—' },
     { key: 'salle', label: t('class.room'), render: (s: Student) => s.salle || '—' },
+    { key: 'scolarite', label: 'Scolarité', render: (s: Student) => s.inscription != null ? (
+      <span className="text-xs whitespace-nowrap" title={`Inscr.: ${formatCFA(s.inscription)} — Pension: ${formatCFA(s.pension || 0)}`}>
+        {formatCFA((s.inscription || 0) + (s.pension || 0))}
+      </span>
+    ) : <span className="text-xs text-gray-400">—</span> },
     { key: 'actif', label: t('common.status'), render: (s: Student) => (
       <span className={`text-xs px-2 py-0.5 rounded ${s.actif ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
         {s.actif ? t('common.active') : t('common.inactive')}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { paymentAPI, classAPI, studentAPI, academicAPI } from '../../services/api'
-import { Scolarite, Tranche, Mode, Paiement, Cycle, Student, AnneeAcademique } from '../../types'
+import { paymentAPI, classAPI } from '../../services/api'
+import { Scolarite, Tranche, Mode, Paiement, Classe, Cycle } from '../../types'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import DataTable from '../../components/DataTable'
 import Modal from '../../components/Modal'
@@ -10,11 +10,14 @@ import { formatCurrency, formatDate } from '../../utils/formatters'
 import toast from 'react-hot-toast'
 
 export default function PaymentsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const isFr = i18n.language === 'fr'
   const [scolarites, setScolarites] = useState<Scolarite[]>([])
   const [tranches, setTranches] = useState<Tranche[]>([])
   const [modes, setModes] = useState<Mode[]>([])
   const [paiements, setPaiements] = useState<Paiement[]>([])
+  const [classes, setClasses] = useState<Classe[]>([])
+  const [cycles, setCycles] = useState<Cycle[]>([])
   const [loading, setLoading] = useState(true)
   const [students, setStudents] = useState<Student[]>([])
   const [activeAnnee, setActiveAnnee] = useState<AnneeAcademique | null>(null)
@@ -23,7 +26,11 @@ export default function PaymentsPage() {
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentLabel, setSelectedStudentLabel] = useState('')
 
-  const [cycles, setCycles] = useState<Cycle[]>([])
+  const [tarifModal, setTarifModal] = useState(false)
+  const [editingClasse, setEditingClasse] = useState<Classe | null>(null)
+  const [editingScolariteId, setEditingScolariteId] = useState<number | null>(null)
+  const [tarifForm, setTarifForm] = useState({ inscription: 0, pension: 0, nbreTranche: 3 })
+
   const [tuitionModal, setTuitionModal] = useState(false)
   const [tuitionForm, setTuitionForm] = useState({
     inscription: 0,
@@ -48,20 +55,15 @@ export default function PaymentsPage() {
       paymentAPI.getTranches(),
       paymentAPI.getModes(),
       paymentAPI.getPaiements(),
+      classAPI.getClasses(),
       classAPI.getCycles(),
-      studentAPI.getAll(),
-      academicAPI.getAnnees(),
-    ]).then(([sc, tr, mo, pa, cy, st, an]) => {
+    ]).then(([sc, tr, mo, pa, cl, cy]) => {
       setScolarites(sc.data)
       setTranches(tr.data)
       setModes(mo.data)
       setPaiements(pa.data)
+      setClasses(cl.data)
       setCycles(cy.data)
-      setStudents(st.data)
-      const active = an.data.find((a: AnneeAcademique) => a.actif)
-      setActiveAnnee(active || an.data[0] || null)
-      const user = JSON.parse(localStorage.getItem('user') || '{}')
-      setPaieForm(prev => ({ ...prev, idAca: active?.idAnnee || an.data[0]?.idAnnee || 0, idPers: user.idPers || 1 }))
       setLoading(false)
     })
   }
@@ -283,6 +285,88 @@ export default function PaymentsPage() {
           ))}
         </div>
       </div>
+
+      <div className="bg-white rounded-xl border p-5">
+        <h3 className="font-semibold mb-4">{isFr ? 'Tarifs par classe' : 'Class tuition'}</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-gray-500">
+                <th className="pb-2 font-medium">{t('student.classe')}</th>
+                <th className="pb-2 font-medium">Cycle</th>
+                <th className="pb-2 font-medium text-right">{t('payment.inscription')}</th>
+                <th className="pb-2 font-medium text-right">{t('payment.pension')}</th>
+                <th className="pb-2 font-medium text-right">{isFr ? 'Tranches' : 'Installments'}</th>
+                <th className="pb-2 font-medium text-right">{isFr ? 'Total' : 'Total'}</th>
+                <th className="pb-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {classes.filter(c => !c.isDelete).map(cl => {
+                const sc = scolarites.find(s => s.idCycle === cl.idCycle)
+                const total = sc ? sc.inscription + sc.pension : 0
+                return (
+                  <tr key={cl.idClasse} className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-slate-700/50">
+                    <td className="py-2.5 font-medium">{cl.libelle}</td>
+                    <td className="py-2.5 text-gray-500">{cl.cycle || cl.specialite || '—'}</td>
+                    <td className="py-2.5 text-right">{sc ? formatCurrency(sc.inscription) : '—'}</td>
+                    <td className="py-2.5 text-right">{sc ? formatCurrency(sc.pension) : '—'}</td>
+                    <td className="py-2.5 text-right">{sc ? sc.nbreTranche : '—'}</td>
+                    <td className="py-2.5 text-right font-semibold">{sc ? formatCurrency(total) : '—'}</td>
+                    <td className="py-2.5 text-right">
+                      <button
+                        onClick={() => {
+                          setEditingClasse(cl)
+                          setEditingScolariteId(sc?.idScolarite || null)
+                          setTarifForm({ inscription: sc?.inscription || 0, pension: sc?.pension || 0, nbreTranche: sc?.nbreTranche || 3 })
+                          setTarifModal(true)
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cameroon-green/10 text-cameroon-green rounded-lg hover:bg-cameroon-green/20 transition"
+                      >
+                        <Pencil size={14} />
+                        {t('common.edit')}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Modal open={tarifModal} onClose={() => setTarifModal(false)} title={`${isFr ? 'Modifier les frais' : 'Edit tuition'} — ${editingClasse?.libelle || ''}`}>
+        <form onSubmit={async (e) => {
+          e.preventDefault()
+          try {
+            if (editingScolariteId) {
+              await paymentAPI.updateScolarite(editingScolariteId, tarifForm)
+            } else if (editingClasse) {
+              await paymentAPI.createScolarite({ ...tarifForm, idCycle: editingClasse.idCycle, description: `Plan ${editingClasse.libelle}` })
+            }
+            toast.success(t('toast.saved'))
+            setTarifModal(false)
+            load()
+          } catch { toast.error(t('toast.error')) }
+        }} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('payment.inscription')}</label>
+            <input type="number" min={0} value={tarifForm.inscription} onChange={e => setTarifForm(f => ({ ...f, inscription: parseFloat(e.target.value) }))} required
+              className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('payment.pension')}</label>
+            <input type="number" min={0} value={tarifForm.pension} onChange={e => setTarifForm(f => ({ ...f, pension: parseFloat(e.target.value) }))} required
+              className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{isFr ? 'Nombre de tranches' : 'Number of installments'}</label>
+            <input type="number" min={1} max={12} value={tarifForm.nbreTranche} onChange={e => setTarifForm(f => ({ ...f, nbreTranche: parseInt(e.target.value) }))} required
+              className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium">{t('common.save')}</button>
+        </form>
+      </Modal>
 
       <div className="bg-white rounded-xl border p-5">
         <h3 className="font-semibold mb-4">{t('payment.history')}</h3>

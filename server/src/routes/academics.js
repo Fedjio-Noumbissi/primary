@@ -74,6 +74,7 @@ router.post('/sessions', async (req, res) => {
 
 router.patch('/annees/:id/set-active', async (req, res) => {
   try {
+    try { await pool.query('ALTER TABLE AnneeAcademique ADD COLUMN actif TINYINT(1) DEFAULT 0') } catch (_) {}
     const { id } = req.params
     await pool.query('UPDATE AnneeAcademique SET actif = (idAnnee = ?)', [Number(id)])
     const [rows] = await pool.query('SELECT * FROM AnneeAcademique WHERE idAnnee = ?', [Number(id)])

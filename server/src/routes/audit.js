@@ -33,9 +33,9 @@ router.get('/', authenticate, authorize(1), async (req, res) => {
     const total = countRows[0].total
 
     const [rows] = await pool.query(
-      `SELECT a.*, u.name AS adminName
+      `SELECT a.*, CONCAT(u.nom, ' ', u.prenom) AS adminName
        FROM AuditLogs a
-       LEFT JOIN users u ON u.id = a.idAdmin
+       LEFT JOIN users u ON u.id = a.userId
        ${whereClause}
        ORDER BY a.created_at DESC
        LIMIT ? OFFSET ?`,

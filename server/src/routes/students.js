@@ -11,7 +11,8 @@ const router = Router()
 router.get('/', authenticate, async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT e.*, cl.libelle AS classe, s.libelle AS salle, cy.libelle AS cycle
+      SELECT e.*, cl.libelle AS classe, s.libelle AS salle, cy.libelle AS cycle,
+        sc.idScolarite, sc.inscription, sc.pension, sc.nbreTranche
       FROM eleves e
       LEFT JOIN Frequente f ON f.matricule = CAST(e.matricule AS UNSIGNED)
         AND f.idFrequente = (
@@ -20,6 +21,7 @@ router.get('/', authenticate, async (req, res) => {
       LEFT JOIN Salle s ON s.idSalle = f.idSalle
       LEFT JOIN Classe cl ON cl.idClasse = s.idClasse
       LEFT JOIN Cycle cy ON cy.idCycle = e.idCycle
+      LEFT JOIN Scolarite sc ON sc.idScolarite = f.idScolarite
       WHERE e.actif = 1
     `)
     const mapped = rows.map((r) => ({
@@ -36,6 +38,10 @@ router.get('/', authenticate, async (req, res) => {
       salle: r.salle || null,
       idCycle: r.idCycle || null,
       cycle: r.cycle || null,
+      idScolarite: r.idScolarite || null,
+      inscription: r.inscription || null,
+      pension: r.pension || null,
+      nbreTranche: r.nbreTranche || null,
     }))
     res.json(mapped)
   } catch (err) {
@@ -46,7 +52,14 @@ router.get('/', authenticate, async (req, res) => {
 
 router.get('/:id', authenticate, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM eleves WHERE matricule = ?', [req.params.id])
+    const [rows] = await pool.query(`
+      SELECT e.*, sc.idScolarite, sc.inscription, sc.pension, sc.nbreTranche
+      FROM eleves e
+      LEFT JOIN Frequente f ON f.matricule = CAST(e.matricule AS UNSIGNED)
+        AND f.idFrequente = (SELECT MAX(f2.idFrequente) FROM Frequente f2 WHERE f2.matricule = CAST(e.matricule AS UNSIGNED))
+      LEFT JOIN Scolarite sc ON sc.idScolarite = f.idScolarite
+      WHERE e.matricule = ?
+    `, [req.params.id])
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' })
     const r = rows[0]
     res.json({
@@ -60,6 +73,10 @@ router.get('/:id', authenticate, async (req, res) => {
       photoURL: r.photo_url || '',
       idCycle: r.idCycle || null,
       actif: !!r.actif,
+      idScolarite: r.idScolarite || null,
+      inscription: r.inscription || null,
+      pension: r.pension || null,
+      nbreTranche: r.nbreTranche || null,
     })
   } catch (err) {
     console.error(err)
@@ -212,28 +229,32 @@ router.patch('/:id/toggle-active', authenticate, async (req, res) => {
 
 router.post('/enroll', authenticate, async (req, res) => {
   try {
-    const { matricule, idSalle, idAcademi, parent } = req.body
+    const { matricule, idSalle, idAcademi, idScolarite, parent } = req.body
     const idAdmin = req.user?.id || 1
+    await pool.query('ALTER TABLE Frequente ADD COLUMN idScolarite INT NULL').catch(() => {})
     const [existing] = await pool.query('SELECT * FROM Frequente WHERE matricule = ? AND idAcademi = ?', [matricule, idAcademi])
     if (existing.length) {
-      await pool.query('UPDATE Frequente SET idSalle = ?, idAdmin = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, idAdmin, matricule, idAcademi])
+      await pool.query('UPDATE Frequente SET idSalle = ?, idAdmin = ?, idScolarite = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, idAdmin, idScolarite || null, matricule, idAcademi])
     } else {
-      await pool.query('INSERT INTO Frequente (idSalle, idAcademi, matricule, idAdmin) VALUES (?, ?, ?, ?)', [idSalle, idAcademi, matricule, idAdmin])
+      await pool.query('INSERT INTO Frequente (idSalle, idAcademi, matricule, idAdmin, idScolarite) VALUES (?, ?, ?, ?, ?)', [idSalle || 0, idAcademi || 0, matricule, idAdmin, idScolarite || null])
     }
     if (parent && parent.nom && parent.email) {
-      const [persResult] = await pool.query(
-        "INSERT INTO personnes (nom, prenom, mobile, type_personne) VALUES (?, ?, ?, 'PARENT')",
-        [parent.nom, parent.prenom || '', parent.mobile || '']
-      )
-      const idPers = persResult.insertId
-      const hashed = await bcrypt.hash(parent.password || 'password', 10)
-      const [userResult] = await pool.query(
-        'INSERT INTO users (name, email, password, role, is_active) VALUES (?, ?, ?, ?, 1)',
-        [`${parent.prenom || ''} ${parent.nom}`.trim(), parent.email, hashed, 'PARENT']
-      )
-      await pool.query('UPDATE personnes SET user_id = ? WHERE id_pers = ?', [userResult.insertId, idPers])
-      await pool.query('INSERT INTO Parents (idPers, matricule) VALUES (?, ?)', [idPers, matricule])
-      sendWelcomeEmail(parent.email, parent.password || 'password', `${parent.prenom || ''} ${parent.nom}`.trim(), 'parent').catch(console.error)
+      if (parent.idPers) {
+        await pool.query('INSERT INTO Parents (idPers, matricule, idAdmin) VALUES (?, ?, ?)', [parent.idPers, matricule, idAdmin])
+      } else {
+        const hashed = await bcrypt.hash(parent.password || 'password', 10)
+        const [persResult] = await pool.query(
+          'INSERT INTO Personne (nom, prenom, mobile, typePersonne, login, email, password, actif, idAdmin) VALUES (?, ?, ?, 3, ?, ?, ?, 1, ?)',
+          [parent.nom, parent.prenom || '', parent.mobile || '', parent.email, parent.email, hashed, idAdmin]
+        )
+        const idPers = persResult.insertId
+        await pool.query(
+          'INSERT INTO users (nom, prenom, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+          [parent.nom, parent.prenom || '', parent.email, hashed, 'PARENT']
+        )
+        await pool.query('INSERT INTO Parents (idPers, matricule, idAdmin) VALUES (?, ?, ?)', [idPers, matricule, idAdmin])
+        sendWelcomeEmail(parent.email, parent.password || 'password', `${parent.prenom || ''} ${parent.nom}`.trim(), 'parent').catch(console.error)
+      }
     }
     res.json({ success: true })
   } catch (err) {

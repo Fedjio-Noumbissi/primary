@@ -5,7 +5,7 @@ import { studentAPI, classAPI, academicAPI, parentAPI } from '../../services/api
 import type { Student, Salle, AnneeAcademique } from '../../types'
 import toast from 'react-hot-toast'
 import Combobox from '../../components/Combobox'
-import { Link as LinkIcon, UserPlus } from 'lucide-react'
+import { Link as LinkIcon, UserPlus, Eye, EyeOff } from 'lucide-react'
 
 export default function EnrollmentForm() {
   const { t, i18n } = useTranslation()
@@ -20,6 +20,7 @@ export default function EnrollmentForm() {
   const [parentMode, setParentMode] = useState<'create' | 'link'>('create')
   const [parent, setParent] = useState({ nom: '', prenom: '', email: '', password: 'password', mobile: '' })
   const [selectedParent, setSelectedParent] = useState<{ idParent?: number; idPers?: number; nom: string; prenom: string; email?: string; mobile?: string } | null>(null)
+  const [showParentPwd, setShowParentPwd] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -173,8 +174,14 @@ export default function EnrollmentForm() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{isFr ? 'Mot de passe' : 'Password'} *</label>
-                  <input type="password" value={parent.password} onChange={(e) => setParent({ ...parent, password: e.target.value })} required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100" />
+                  <div className="relative">
+                    <input type={showParentPwd ? 'text' : 'password'} value={parent.password} onChange={(e) => setParent({ ...parent, password: e.target.value })} required
+                      className="w-full pr-10 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100" />
+                    <button type="button" onClick={() => setShowParentPwd(!showParentPwd)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300">
+                      {showParentPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{isFr ? 'Téléphone' : 'Phone'}</label>

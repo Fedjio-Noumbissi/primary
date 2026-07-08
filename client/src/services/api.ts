@@ -95,9 +95,10 @@ export const reportAPI = {
 export const paymentAPI = {
   getScolarites: () => api.get<Scolarite[]>('/scolarites'),
   createScolarite: (data: Partial<Scolarite>) => api.post<Scolarite>('/scolarites', data),
-  updateScolarite: (id: number, data: Partial<Scolarite>) => api.put<Scolarite>(`/scolarites/${id}`, data),
+  getScolariteByClasse: (idClasse: number) => api.get<{ scolarite: Scolarite | null; tranches: Tranche[] }>(`/scolarite/by-classe/${idClasse}`),
+  updateScolarite: (id: number, data: Partial<Scolarite>) => api.put<Scolarite>(`/scolarite/${id}`, data),
   deleteScolarite: (id: number) => api.delete(`/scolarites/${id}`),
-  getTranches: (idScolante?: number) => api.get<Tranche[]>('/tranches', { params: { idScolante } }),
+  getTranches: (idScolarite?: number) => api.get<Tranche[]>('/tranches', { params: { idScolarite } }),
   createTranche: (data: Partial<Tranche>) => api.post<Tranche>('/tranches', data),
   updateTranche: (id: number, data: Partial<Tranche>) => api.put<Tranche>(`/tranches/${id}`, data),
   deleteTranche: (id: number) => api.delete(`/tranches/${id}`),
@@ -151,7 +152,7 @@ export const studentAPI = {
   batchChangeClass: (matricules: number[], idSalle: number) => api.patch<{ updated: number }>('/students/batch/class', { matricules, idSalle }),
   getGrades: (id: number) => api.get<Evaluation[]>(`/students/${id}/grades`),
   getPayments: (id: number) => api.get<Paiement[]>(`/students/${id}/payments`),
-  enroll: (data: { matricule: number; idSalle: number; idAcademi: number; parent?: { nom: string; prenom: string; email: string; password: string; mobile: string } }) => api.post('/students/enroll', data),
+  enroll: (data: { matricule: number; idSalle?: number; idAcademi?: number; idScolarite?: number; parent?: { nom: string; prenom: string; email: string; password: string; mobile: string } }) => api.post('/students/enroll', data),
 }
 
 export const teacherAPI = {
