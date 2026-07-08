@@ -165,6 +165,7 @@ export interface Scolarite {
   pension: number;
   nbreTranche: number;
   idCycle: number;
+  cycle?: string;
 }
 
 export interface Tranche {
@@ -173,6 +174,7 @@ export interface Tranche {
   montant: number;
   delai_mois: string;
   delai_jour: string;
+  date_limite?: string;
   idScolante: number;
   actif: boolean;
 }

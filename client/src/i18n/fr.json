@@ -189,6 +189,10 @@
   "payment.tranche": "Tranche",
   "payment.addTranche": "Ajouter une Tranche",
   "payment.montant": "Montant",
+  "payment.nbreTranches": "Nombre de Tranches",
+  "payment.dateLimite": "Date Limite de Paiement",
+  "payment.addTuition": "Ajouter des Frais",
+  "payment.totalDue": "Total Dû",
   "payment.mode": "Mode de Paiement",
   "payment.date": "Date de Paiement",
   "payment.receive": "Enregistrer un Paiement",
@@ -196,7 +200,6 @@
   "payment.balance": "Solde Restant",
   "payment.receipt": "Reçu de Paiement",
   "payment.totalPaid": "Total Payé",
-  "payment.totalDue": "Total Dû",
 
   "parent.title": "Espace Parent",
   "parent.childInfo": "Informations de l'Enfant",

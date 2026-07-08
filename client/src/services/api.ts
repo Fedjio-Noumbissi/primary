@@ -95,12 +95,25 @@ export const reportAPI = {
 export const paymentAPI = {
   getScolarites: () => api.get<Scolarite[]>('/scolarites'),
   createScolarite: (data: Partial<Scolarite>) => api.post<Scolarite>('/scolarites', data),
+  updateScolarite: (id: number, data: Partial<Scolarite>) => api.put<Scolarite>(`/scolarites/${id}`, data),
+  deleteScolarite: (id: number) => api.delete(`/scolarites/${id}`),
   getTranches: (idScolante?: number) => api.get<Tranche[]>('/tranches', { params: { idScolante } }),
   createTranche: (data: Partial<Tranche>) => api.post<Tranche>('/tranches', data),
+  updateTranche: (id: number, data: Partial<Tranche>) => api.put<Tranche>(`/tranches/${id}`, data),
+  deleteTranche: (id: number) => api.delete(`/tranches/${id}`),
   getModes: () => api.get<Mode[]>('/modes'),
   createMode: (data: Partial<Mode>) => api.post<Mode>('/modes', data),
+  updateMode: (id: number, data: Partial<Mode>) => api.put<Mode>(`/modes/${id}`, data),
+  deleteMode: (id: number) => api.delete(`/modes/${id}`),
   getPaiements: () => api.get<Paiement[]>('/paiements'),
   createPaiement: (data: Partial<Paiement>) => api.post<Paiement>('/paiements', data),
+  createScolariteWithTranches: (data: {
+    inscription: number;
+    pension: number;
+    nbreTranche: number;
+    idCycle: number;
+    tranches: { libelle: string; montant: number; date_limite: string }[];
+  }) => api.post('/scolarites-with-tranches', data),
 }
 
 export const libraryAPI = {

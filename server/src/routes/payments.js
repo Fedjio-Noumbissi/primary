@@ -141,7 +141,9 @@ router.get('/paiements/:id/receipt', async (req, res) => {
 
 router.get('/scolarites', async (_req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM Scolarite')
+    const [rows] = await pool.query(
+      'SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle'
+    )
     res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -150,12 +152,66 @@ router.post('/scolarites', async (req, res) => {
   try {
     const { inscription, pension, nbreTranche, idCycle } = req.body
     const [result] = await pool.query(
-      'INSERT INTO Scolarite (inscription, pension, nbreTranche, idCycle) VALUES (?, ?, ?, ?)',
-      [inscription, pension, nbreTranche || 3, idCycle]
+      'INSERT INTO Scolarite (inscription, pension, nbreTranche, idCycle, description, idFondateur) VALUES (?, ?, ?, ?, ?, ?)',
+      [inscription, pension, nbreTranche || 3, idCycle, '', 1]
     )
-    const [rows] = await pool.query('SELECT * FROM Scolarite WHERE idScolarite = ?', [result.insertId])
+    const [rows] = await pool.query('SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle WHERE s.idScolarite = ?', [result.insertId])
     res.status(201).json(rows[0])
   } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.put('/scolarites/:id', async (req, res) => {
+  try {
+    const { inscription, pension, nbreTranche, idCycle } = req.body
+    await pool.query(
+      'UPDATE Scolarite SET inscription = ?, pension = ?, nbreTranche = ?, idCycle = ? WHERE idScolarite = ?',
+      [inscription, pension, nbreTranche, idCycle, req.params.id]
+    )
+    const [rows] = await pool.query('SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle WHERE s.idScolarite = ?', [req.params.id])
+    res.json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.delete('/scolarites/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM Tranches WHERE idScolarite = ?', [req.params.id])
+    await pool.query('DELETE FROM Scolarite WHERE idScolarite = ?', [req.params.id])
+    res.json({ message: 'Deleted' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.post('/scolarites-with-tranches', async (req, res) => {
+  const conn = await pool.getConnection()
+  try {
+    await conn.beginTransaction()
+    const { inscription, pension, nbreTranche, idCycle, tranches } = req.body
+    const [scolResult] = await conn.query(
+      'INSERT INTO Scolarite (inscription, pension, nbreTranche, idCycle, description, idFondateur) VALUES (?, ?, ?, ?, ?, ?)',
+      [inscription, pension, nbreTranche, idCycle, '', 1]
+    )
+    const idScolarite = scolResult.insertId
+    if (tranches && tranches.length > 0) {
+      for (const t of tranches) {
+        await conn.query(
+          'INSERT INTO Tranches (libelle, montant, delai_mois, delai_jour, date_limite, idScolarite, idFondateur) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [t.libelle, t.montant, t.delai_mois || '', t.delai_jour || '', t.date_limite || null, idScolarite, 1]
+        )
+      }
+    }
+    await conn.commit()
+    const [scol] = await pool.query(
+      'SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle WHERE s.idScolarite = ?',
+      [idScolarite]
+    )
+    const [trancheRows] = await pool.query('SELECT * FROM Tranches WHERE idScolarite = ?', [idScolarite])
+    res.status(201).json({ scolarite: scol[0], tranches: trancheRows })
+  } catch (err) {
+    await conn.rollback()
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  } finally {
+    conn.release()
+  }
 })
 
 router.get('/tranches', async (req, res) => {
@@ -173,13 +229,32 @@ router.get('/tranches', async (req, res) => {
 
 router.post('/tranches', async (req, res) => {
   try {
-    const { libelle, montant, delai_mois, delai_jour, idScolarite } = req.body
+    const { libelle, montant, delai_mois, delai_jour, date_limite, idScolarite } = req.body
     const [result] = await pool.query(
-      'INSERT INTO Tranches (libelle, montant, delai_mois, delai_jour, idScolarite) VALUES (?, ?, ?, ?, ?)',
-      [libelle, montant, delai_mois, delai_jour, idScolarite]
+      'INSERT INTO Tranches (libelle, montant, delai_mois, delai_jour, date_limite, idScolarite, idFondateur) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [libelle, montant, delai_mois || '', delai_jour || '', date_limite || null, idScolarite, 1]
     )
     const [rows] = await pool.query('SELECT * FROM Tranches WHERE idTranche = ?', [result.insertId])
     res.status(201).json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.put('/tranches/:id', async (req, res) => {
+  try {
+    const { libelle, montant, date_limite, actif } = req.body
+    await pool.query(
+      'UPDATE Tranches SET libelle = ?, montant = ?, date_limite = ?, actif = ? WHERE idTranche = ?',
+      [libelle, montant, date_limite || null, actif ?? 1, req.params.id]
+    )
+    const [rows] = await pool.query('SELECT * FROM Tranches WHERE idTranche = ?', [req.params.id])
+    res.json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.delete('/tranches/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM Tranches WHERE idTranche = ?', [req.params.id])
+    res.json({ message: 'Deleted' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -193,9 +268,25 @@ router.get('/modes', async (_req, res) => {
 router.post('/modes', async (req, res) => {
   try {
     const { libelle } = req.body
-    const [result] = await pool.query('INSERT INTO Mode (libelle) VALUES (?)', [libelle])
+    const [result] = await pool.query('INSERT INTO Mode (libelle, information, idFondateur) VALUES (?, ?, ?)', [libelle, libelle, 1])
     const [rows] = await pool.query('SELECT * FROM Mode WHERE idMode = ?', [result.insertId])
     res.status(201).json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.put('/modes/:id', async (req, res) => {
+  try {
+    const { libelle, actif } = req.body
+    await pool.query('UPDATE Mode SET libelle = ?, actif = ? WHERE idMode = ?', [libelle, actif ?? 1, req.params.id])
+    const [rows] = await pool.query('SELECT * FROM Mode WHERE idMode = ?', [req.params.id])
+    res.json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.delete('/modes/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM Mode WHERE idMode = ?', [req.params.id])
+    res.json({ message: 'Deleted' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

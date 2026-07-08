@@ -189,6 +189,10 @@
   "payment.tranche": "Installment",
   "payment.addTranche": "Add Installment",
   "payment.montant": "Amount",
+  "payment.nbreTranches": "Number of Installments",
+  "payment.dateLimite": "Payment Deadline",
+  "payment.addTuition": "Add Tuition Fees",
+  "payment.totalDue": "Total Due",
   "payment.mode": "Payment Method",
   "payment.date": "Payment Date",
   "payment.receive": "Record Payment",
@@ -196,7 +200,6 @@
   "payment.balance": "Outstanding Balance",
   "payment.receipt": "Payment Receipt",
   "payment.totalPaid": "Total Paid",
-  "payment.totalDue": "Total Due",
 
   "parent.title": "Parent Portal",
   "parent.childInfo": "Child Information",
