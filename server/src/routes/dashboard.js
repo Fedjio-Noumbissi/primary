@@ -29,8 +29,16 @@ router.get('/teacher/:idPers', async (req, res) => {
   try {
     const { idPers } = req.params
     const [[teacher]] = await pool.query('SELECT e.*, p.nom, p.prenom FROM enseignants e LEFT JOIN personnes p ON p.id_pers = e.id_pers WHERE e.id_pers = ?', [idPers])
-    const [cours] = await pool.query('SELECT * FROM Cours WHERE idEnseignant = ?', [teacher?.id_enseignant || 0])
-    res.json({ teacher, cours })
+    const idEns = teacher?.id_enseignant || 0
+    const [cours] = await pool.query(
+      'SELECT c.*, cl.libelle AS classeLibelle FROM Cours c LEFT JOIN Classe cl ON cl.idClasse = c.idClasse WHERE c.idEnseignant = ?',
+      [idEns]
+    )
+    const [classes] = await pool.query(
+      'SELECT idClasse, libelle FROM Classe WHERE titulaire = ? AND isDelete = 0',
+      [idEns]
+    )
+    res.json({ teacher, cours, classes })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

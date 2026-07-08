@@ -6,7 +6,7 @@ import LoadingSkeleton from '../../components/LoadingSkeleton'
 import Modal from '../../components/Modal'
 import {
   Plus, ChevronRight, ChevronDown, Circle, Users, User,
-  Archive, ArchiveRestore, Download, Edit3, ToggleLeft, ToggleRight,
+  Archive, ArchiveRestore, Download, Edit3, ToggleLeft, ToggleRight, Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -146,6 +146,24 @@ export default function ClassList() {
     load()
   }
 
+  async function handleDeleteClass(id: number) {
+    if (!confirm('Supprimer définitivement cette classe et ses salles ?')) return
+    try {
+      await classAPI.deleteClass(id)
+      toast.success('Supprimé')
+      load()
+    } catch { toast.error(t('toast.error')) }
+  }
+
+  async function handleDeleteSalle(id: number) {
+    if (!confirm('Supprimer définitivement cette salle ?')) return
+    try {
+      await classAPI.deleteSalle(id)
+      toast.success('Supprimé')
+      load()
+    } catch { toast.error(t('toast.error')) }
+  }
+
   if (loading) return <LoadingSkeleton rows={8} />
 
   return (
@@ -258,6 +276,9 @@ export default function ClassList() {
                                 <Archive size={15} />
                               </button>
                             )}
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteClass(cl.idClasse) }} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600" title="Supprimer">
+                              <Trash2 size={15} />
+                            </button>
                           </div>
 
                           {/* Salles */}
@@ -289,6 +310,9 @@ export default function ClassList() {
                                         {s.actif ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                                       </button>
                                     )}
+                                    <button onClick={() => handleDeleteSalle(s.idSalle)} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600" title="Supprimer">
+                                      <Trash2 size={14} />
+                                    </button>
                                   </div>
                                 )
                               })}

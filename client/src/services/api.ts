@@ -46,6 +46,7 @@ export const classAPI = {
   getArchivedClasses: () => api.get<Classe[]>('/classes/archived'),
   createClass: (data: Partial<Classe>) => api.post<Classe>('/classes', data),
   toggleArchiveClass: (id: number) => api.patch<Classe>(`/classes/${id}/toggle-archive`),
+  deleteClass: (id: number) => api.delete(`/classes/${id}`),
   setClassTeacher: (id: number, titulaire: number | null) => api.patch<Classe>(`/classes/${id}/titulaire`, { titulaire }),
   getClassStudentCount: (id: number) => api.get<{ count: number }>(`/classes/${id}/students`),
   getClassPDF: (id: number) => `/api/classes/${id}/pdf`,
@@ -53,6 +54,7 @@ export const classAPI = {
   createSalle: (data: Partial<Salle & { capacite?: number }>) => api.post<Salle>('/salles', data),
   toggleActiveSalle: (id: number) => api.patch<Salle>(`/salles/${id}/toggle-active`),
   updateSalle: (id: number, data: Partial<Salle & { capacite?: number }>) => api.put<Salle>(`/salles/${id}`, data),
+  deleteSalle: (id: number) => api.delete(`/salles/${id}`),
 }
 
 export const academicAPI = {

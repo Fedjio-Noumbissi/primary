@@ -14,7 +14,7 @@ router.post('/annees', async (req, res) => {
   try {
     const { libelle, periode } = req.body
     const [result] = await pool.query(
-      'INSERT INTO AnneeAcademique (libelle, periode, created_at) VALUES (?, ?, CURDATE())',
+      'INSERT INTO AnneeAcademique (libelle, periode, created_at, idAdmin) VALUES (?, ?, CURDATE(), 1)',
       [libelle, periode]
     )
     const [rows] = await pool.query('SELECT * FROM AnneeAcademique WHERE idAnnee = ?', [result.insertId])
@@ -39,7 +39,7 @@ router.post('/trimestres', async (req, res) => {
   try {
     const { libelle, periode, idAca } = req.body
     const [result] = await pool.query(
-      'INSERT INTO Trimestre (libelle, periode, idAca) VALUES (?, ?, ?)',
+      'INSERT INTO Trimestre (libelle, periode, idAca, idAdmin) VALUES (?, ?, ?, 1)',
       [libelle, periode, idAca]
     )
     const [rows] = await pool.query('SELECT * FROM Trimestre WHERE idTrimes = ?', [result.insertId])
@@ -65,7 +65,7 @@ router.post('/sessions', async (req, res) => {
     const { libelle, idTrimestre, idPers } = req.body
     const [result] = await pool.query(
       'INSERT INTO Session (libelle, idTrimestre, idPers) VALUES (?, ?, ?)',
-      [libelle, idTrimestre, idPers]
+      [libelle, idTrimestre, idPers || 1]
     )
     const [rows] = await pool.query('SELECT * FROM Session WHERE idSession = ?', [result.insertId])
     res.status(201).json(rows[0])

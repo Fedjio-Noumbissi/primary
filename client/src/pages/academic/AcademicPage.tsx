@@ -41,7 +41,7 @@ export default function AcademicPage() {
   const [sessModal, setSessModal] = useState(false)
   const [anneeForm, setAnneeForm] = useState({ libelle: '', periode: '' })
   const [trimForm, setTrimForm] = useState({ libelle: '', periode: '', idAca: 0 })
-  const [sessForm, setSessForm] = useState({ libelle: '', idTrimestre: 0 })
+  const [sessForm, setSessForm] = useState({ libelle: '', idTrimestre: 0, idPers: 0 })
 
   const activeAnnee = useMemo(() => annees.find((a) => a.actif), [annees])
 
@@ -102,10 +102,11 @@ export default function AcademicPage() {
 
   async function createSession(e: React.FormEvent) {
     e.preventDefault()
-    await academicAPI.createSession(sessForm)
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    await academicAPI.createSession({ ...sessForm, idPers: user.idPers || 1 })
     toast.success(t('toast.saved'))
     setSessModal(false)
-    setSessForm({ libelle: '', idTrimestre: 0 })
+    setSessForm({ libelle: '', idTrimestre: 0, idPers: 0 })
     load()
   }
 
@@ -131,7 +132,7 @@ export default function AcademicPage() {
           <button onClick={() => setTrimModal(true)} className="flex items-center gap-1.5 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
             <Plus size={16} /> {t('academic.addTrimestre')}
           </button>
-          <button onClick={() => setSessModal(true)} className="flex items-center gap-1.5 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
+          <button onClick={() => { const firstTrim = allTrimestres.find((t) => t.idAca === selectedAnnee); setSessForm({ libelle: '', idTrimestre: firstTrim?.idTrimes || 0, idPers: 0 }); setSessModal(true) }} className="flex items-center gap-1.5 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
             <Plus size={16} /> {t('academic.addSession')}
           </button>
         </div>

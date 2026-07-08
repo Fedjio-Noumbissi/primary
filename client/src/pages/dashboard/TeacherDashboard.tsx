@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { dashboardAPI, courseAPI, examAPI } from '../../services/api'
-import { BookOpen, Clock, ClipboardList } from 'lucide-react'
+import { BookOpen, Clock, ClipboardList, Users, GraduationCap } from 'lucide-react'
 import StatCard from '../../components/StatCard'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 
@@ -10,6 +10,7 @@ import LoadingSkeleton from '../../components/LoadingSkeleton'
 interface TeacherData {
   teacher: any
   cours: any[]
+  classes: any[]
 }
 
 export default function TeacherDashboard() {
@@ -49,22 +50,45 @@ export default function TeacherDashboard() {
         {t('dashboard.title')} — {user?.nom} {user?.prenom}
       </h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard title={t('dashboard.myClasses')} value={classIds.length} icon={<BookOpen size={22} />} />
+        <StatCard title="Classes titulaires" value={data.classes.length} icon={<GraduationCap size={22} />} />
         <StatCard title={t('dashboard.mySchedule')} value={myTimetable.length} icon={<Clock size={22} />} />
         <StatCard title={t('dashboard.recentGrades')} value={evaluations.length} icon={<ClipboardList size={22} />} color="text-cameroon-red" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Titulaire classes */}
+        {data.classes.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <GraduationCap size={18} className="text-cameroon-green" />
+              Classes titulaires
+            </h3>
+            <ul className="space-y-2">
+              {data.classes.map((cl: any) => (
+                <li key={cl.idClasse} className="flex items-center gap-3 px-3 py-2 bg-amber-50 rounded-lg">
+                  <Users size={16} className="text-amber-600" />
+                  <span className="font-medium">{cl.libelle}</span>
+                  <span className="text-xs text-amber-600 ml-auto">Titulaire</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">{t('dashboard.myClasses')}</h3>
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <BookOpen size={18} className="text-cameroon-green" />
+            {t('dashboard.myClasses')}
+          </h3>
           <ul className="space-y-2">
             {data.cours.map((c: any) => (
               <li key={c.idCours} className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg">
-                <BookOpen size={16} className="text-cameroon-green" />
+                <BookOpen size={16} className="text-cameroon-green shrink-0" />
                 <span className="font-medium">{c.libelle}</span>
-                {c.idClasse && (
-                  <span className="text-xs text-gray-400 ml-auto">Classe #{c.idClasse}</span>
+                {c.classeLibelle && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full ml-auto">{c.classeLibelle}</span>
                 )}
               </li>
             ))}
@@ -75,7 +99,10 @@ export default function TeacherDashboard() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">{t('dashboard.mySchedule')}</h3>
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Clock size={18} className="text-cameroon-green" />
+            {t('dashboard.mySchedule')}
+          </h3>
           <div className="space-y-2 text-sm">
             {myTimetable.map((t: any) => (
               <div key={t.idTemps} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">

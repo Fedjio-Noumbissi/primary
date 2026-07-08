@@ -5,7 +5,7 @@ import { Teacher, Course, Classe } from '../../types'
 import DataTable from '../../components/DataTable'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import Modal from '../../components/Modal'
-import { Plus, Edit, ToggleLeft, ToggleRight, BookOpen, Users } from 'lucide-react'
+import { Plus, Edit, ToggleLeft, ToggleRight, BookOpen, Users, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function TeacherList() {
@@ -15,6 +15,7 @@ export default function TeacherList() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState({ nom: '', prenom: '', mobile: '', email: '', password: '' })
   const [editId, setEditId] = useState<number | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const [courseModalOpen, setCourseModalOpen] = useState(false)
   const [classModalOpen, setClassModalOpen] = useState(false)
@@ -45,9 +46,13 @@ export default function TeacherList() {
       const payload = { ...form }
       if (!editId && !payload.email) { toast.error('Email requis'); return }
       if (!editId && !payload.password) { toast.error('Mot de passe requis'); return }
-      if (editId) await teacherAPI.update(editId, payload)
-      else await teacherAPI.create(payload)
-      toast.success(t('toast.saved'))
+      if (editId) {
+        await teacherAPI.update(editId, payload)
+        toast.success(t('toast.saved'))
+      } else {
+        const res = await teacherAPI.create(payload)
+        toast.success(`Enseignant créé ! Mot de passe: ${res.data.password || payload.password}`, { duration: 10000 })
+      }
       setModalOpen(false)
       setForm({ nom: '', prenom: '', mobile: '', email: '', password: '' })
       setEditId(null)
@@ -196,7 +201,12 @@ export default function TeacherList() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
-            <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editId} placeholder="password" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green" />
+            <div className="relative">
+              <input type={showPassword ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editId} placeholder="password" className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green" />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
           <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium hover:bg-cameroon-green-light transition">
             {t('common.save')}

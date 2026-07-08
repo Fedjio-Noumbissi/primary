@@ -66,7 +66,7 @@ router.post('/', authenticate, async (req, res) => {
       prenom: prenom || '',
       mobile: mobile || '',
       email,
-      password: '',
+      password: password || 'password',
       typePersonne: 2,
       token: '',
       actif: true,
