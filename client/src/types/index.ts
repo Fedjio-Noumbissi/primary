@@ -232,6 +232,12 @@ export interface Message {
   information: string;
   created_at: string;
   valider: boolean;
+  receiverRole?: string;
+  receiverId?: number;
+  receiverLabel?: string;
+  senderRole?: string;
+  senderId?: number;
+  senderLabel?: string;
 }
 
 export interface SearchResult {

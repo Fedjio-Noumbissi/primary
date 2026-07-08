@@ -1,16 +1,37 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { mockStudents } from '../../services/mockData'
+import { disciplineAPI } from '../../services/api'
 import DataTable from '../../components/DataTable'
 import Modal from '../../components/Modal'
+import LoadingSkeleton from '../../components/LoadingSkeleton'
 import { Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function DisciplinePage() {
   const { t } = useTranslation()
-  const [events, setEvents] = useState<{ id: number; matricule: number; libelle: string; points: number; date: string }[]>([])
+  const [events, setEvents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({ matricule: 0, libelle: '', points: 0 })
+
+  useEffect(() => {
+    disciplineAPI.getAll().then((res) => { setEvents(res.data); setLoading(false) })
+  }, [])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      const res = await disciplineAPI.create(form)
+      setEvents((prev) => [res.data, ...prev])
+      toast.success(t('toast.saved'))
+      setModal(false)
+      setForm({ matricule: 0, libelle: '', points: 0 })
+    } catch {
+      toast.error(t('toast.error'))
+    }
+  }
+
+  if (loading) return <LoadingSkeleton rows={4} />
 
   const columns = [
     { key: 'matricule', label: t('discipline.student'), render: (e: any) => {
@@ -40,8 +61,8 @@ export default function DisciplinePage() {
       </div>
 
       <Modal open={modal} onClose={() => setModal(false)} title={t('discipline.add')}>
-        <form onSubmit={(e) => { e.preventDefault(); setEvents([...events, { ...form, id: Date.now(), date: new Date().toISOString() }]); toast.success(t('toast.saved')); setModal(false); setForm({ matricule: 0, libelle: '', points: 0 }) }} className="space-y-4">
-          <div><label className="block text-sm font-medium mb-1">{t('discipline.student')}</label><select value={form.matricule} onChange={(e) => setForm({ ...form, matricule: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">{mockStudents.filter((s) => s.actif).map((s) => <option key={s.matricule} value={s.matricule}>{s.nom} {s.prenom}</option>)}</select></div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div><label className="block text-sm font-medium mb-1">{t('discipline.student')}</label><select value={form.matricule} onChange={(e) => setForm({ ...form, matricule: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">{events.map((e: any) => <option key={e.matricule} value={e.matricule}>{e.nom} {e.prenom}</option>)}</select></div>
           <div><label className="block text-sm font-medium mb-1">{t('discipline.event')}</label><input type="text" value={form.libelle} onChange={(e) => setForm({ ...form, libelle: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">{t('discipline.points')} (positif = pénalité, négatif = bonus)</label><input type="number" value={form.points} onChange={(e) => setForm({ ...form, points: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
           <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium">{t('common.save')}</button>

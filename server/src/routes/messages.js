@@ -12,13 +12,47 @@ router.get('/messages', async (_req, res) => {
 
 router.post('/messages', async (req, res) => {
   try {
-    const { idExp_Pers, idParent, objet, information } = req.body
+    const { idExp_Pers, idParent, objet, information, receiverRole, receiverId, receiverLabel } = req.body
+    const [[{ idAca }]] = await pool.query('SELECT COALESCE((SELECT idAnnee FROM AnneeAcademique ORDER BY idAnnee DESC LIMIT 1), 1) AS idAca')
     const [result] = await pool.query(
-      'INSERT INTO Messages (idExp_Pers, idParent, objet, information) VALUES (?, ?, ?, ?)',
-      [idExp_Pers, idParent, objet, information]
+      'INSERT INTO Messages (idExp_Pers, idParent, objet, information, AnneeAcade, receiverRole, receiverId, receiverLabel) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [idExp_Pers, idParent, objet, information, idAca, receiverRole || null, receiverId || null, receiverLabel || null]
     )
     const [rows] = await pool.query('SELECT * FROM Messages WHERE idMessages = ?', [result.insertId])
     res.status(201).json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.post('/messages/broadcast', async (req, res) => {
+  try {
+    const { idExp_Pers, objet, information, target } = req.body
+    const [[{ idAca }]] = await pool.query('SELECT COALESCE((SELECT idAnnee FROM AnneeAcademique ORDER BY idAnnee DESC LIMIT 1), 1) AS idAca')
+    const values = []
+
+    if (target === 'parents' || target === 'all') {
+      const [parents] = await pool.query(
+        'SELECT p.idParent, p.idPers, pr.nom, pr.prenom FROM Parents p JOIN personnes pr ON pr.id_pers = p.idPers WHERE p.isDelete = 0'
+      )
+      for (const p of parents) {
+        values.push([idExp_Pers, p.idParent, objet, information, idAca, 'parent', p.idPers, `${p.nom} ${p.prenom}`])
+      }
+    }
+
+    if (target === 'teachers' || target === 'all') {
+      const [teachers] = await pool.query(
+        'SELECT e.id_pers AS idPers, p.nom, p.prenom FROM enseignants e JOIN personnes p ON p.id_pers = e.id_pers WHERE e.actif = 1'
+      )
+      for (const t of teachers) {
+        values.push([idExp_Pers, 1, objet, information, idAca, 'teacher', t.idPers, `${t.nom} ${t.prenom}`])
+      }
+    }
+
+    if (values.length === 0) return res.json({ success: true, count: 0 })
+    await pool.query(
+      'INSERT INTO Messages (idExp_Pers, idParent, objet, information, AnneeAcade, receiverRole, receiverId, receiverLabel) VALUES ?',
+      [values]
+    )
+    res.status(201).json({ success: true, count: values.length })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

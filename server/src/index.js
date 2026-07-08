@@ -22,6 +22,8 @@ import dashboardRoutes from './routes/dashboard.js'
 import reportRoutes from './routes/reports.js'
 import searchRoutes from './routes/search.js'
 import uploadRoutes from './routes/upload.js'
+import disciplineRoutes from './routes/discipline.js'
+import schoolRoutes from './routes/school.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -53,6 +55,8 @@ app.use('/api', reportRoutes)
 
 app.use('/api/search', searchRoutes)
 app.use('/api/upload', uploadRoutes)
+app.use('/api', disciplineRoutes)
+app.use('/api', schoolRoutes)
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 

@@ -18,7 +18,7 @@ router.post('/courses', async (req, res) => {
   try {
     const { libelle, coefficient, description, idClasse, note } = req.body
     const [result] = await pool.query(
-      'INSERT INTO Cours (libelle, coefficient, description, idClasse, note) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO Cours (libelle, coefficient, description, idClasse, note, idAdmin) VALUES (?, ?, ?, ?, ?, 1)',
       [libelle, coefficient || 1, description || '', idClasse, note || 1]
     )
     const [rows] = await pool.query('SELECT * FROM Cours WHERE idCours = ?', [result.insertId])
@@ -59,7 +59,7 @@ router.post('/timetable', async (req, res) => {
   try {
     const { jour, heure, idClasse, idCours, idEnseignant, idSalle } = req.body
     const [result] = await pool.query(
-      'INSERT INTO EmploiDuTemps (jour, heure, idClasse, idCours, idEnseignant, idSalle) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO EmploiDuTemps (jour, heure, idClasse, idCours, idEnseignant, idSalle, idAdmin) VALUES (?, ?, ?, ?, ?, ?, 1)',
       [jour, heure, idClasse, idCours, idEnseignant || null, idSalle || null]
     )
     const [rows] = await pool.query('SELECT e.*, c.libelle AS cours FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours WHERE e.idTemps = ?', [result.insertId])
@@ -76,6 +76,13 @@ router.put('/timetable/:id', async (req, res) => {
     )
     const [rows] = await pool.query('SELECT e.*, c.libelle AS cours FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours WHERE e.idTemps = ?', [Number(req.params.id)])
     res.json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.delete('/courses/:id', async (req, res) => {
+  try {
+    await pool.query('UPDATE Cours SET isDelete = 1 WHERE idCours = ?', [Number(req.params.id)])
+    res.json({ success: true })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

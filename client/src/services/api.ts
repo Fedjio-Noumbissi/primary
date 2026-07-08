@@ -71,6 +71,7 @@ export const academicAPI = {
 export const courseAPI = {
   getAll: () => api.get<Course[]>('/courses'),
   create: (data: Partial<Course>) => api.post<Course>('/courses', data),
+  delete: (id: number) => api.delete(`/courses/${id}`),
   getTimetable: (idClasse?: number) => api.get<EmploiDuTemps[]>('/timetable', { params: { idClasse } }),
   getTimetableByTeacher: (idEnseignant: number) => api.get<EmploiDuTemps[]>('/timetable', { params: { idEnseignant } }),
   getTimetableBySalle: (idSalle: number) => api.get<EmploiDuTemps[]>('/timetable', { params: { idSalle } }),
@@ -128,6 +129,8 @@ export const libraryAPI = {
 export const messageAPI = {
   getAll: () => api.get<Message[]>('/messages'),
   send: (data: Partial<Message>) => api.post<Message>('/messages', data),
+  broadcast: (data: { idExp_Pers: number; objet: string; information: string; target: 'parents' | 'teachers' | 'all' }) =>
+    api.post('/messages/broadcast', data),
 }
 
 export const userAPI = {
@@ -183,6 +186,12 @@ export const uploadAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+}
+
+export const disciplineAPI = {
+  getAll: () => api.get('/discipline'),
+  create: (data: { libelle: string; points: number; matricule: number; idAca?: number; commentaire?: string }) =>
+    api.post('/discipline', data),
 }
 
 export default api

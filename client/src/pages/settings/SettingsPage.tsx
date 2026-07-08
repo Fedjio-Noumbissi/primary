@@ -1,20 +1,65 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { REGIONS } from '../../utils/constants'
-import { mockAnnees, mockModes } from '../../services/mockData'
+import { paymentAPI, classAPI, academicAPI } from '../../services/api'
+import { Mode, AnneeAcademique } from '../../types'
 import toast from 'react-hot-toast'
-import { Save, UserPlus } from 'lucide-react'
+import { Save, Plus, Trash2 } from 'lucide-react'
 import Modal from '../../components/Modal'
+import LoadingSkeleton from '../../components/LoadingSkeleton'
 
 export default function SettingsPage() {
   const { t } = useTranslation()
-  const [school, setSchool] = useState({ name: 'Groupe Scolaire Bilingue Les Anges', address: 'Yaoundé, Centre', region: 'Centre', phone: '677000000', email: 'contact@gsba.cm' })
+  const [loading, setLoading] = useState(true)
+  const [school, setSchool] = useState({ name: '', address: '', region: '', phone: '', email: '' })
+  const [modes, setModes] = useState<Mode[]>([])
+  const [annees, setAnnees] = useState<AnneeAcademique[]>([])
   const [modeModal, setModeModal] = useState(false)
   const [modeForm, setModeForm] = useState({ libelle: '' })
 
-  const handleSchoolSave = () => {
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/school-info').then(r => r.json()),
+      paymentAPI.getModes(),
+      academicAPI.getAnnees(),
+    ]).then(([schoolData, modesRes, anneesRes]) => {
+      setSchool(schoolData)
+      setModes(modesRes.data)
+      setAnnees(anneesRes.data)
+      setLoading(false)
+    })
+  }, [])
+
+  const handleSchoolSave = async () => {
+    await fetch('/api/school-info', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(school) })
     toast.success(t('toast.saved'))
   }
+
+  const handleAddMode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await paymentAPI.createMode(modeForm)
+    const res = await paymentAPI.getModes()
+    setModes(res.data)
+    toast.success(t('toast.saved'))
+    setModeModal(false)
+    setModeForm({ libelle: '' })
+  }
+
+  const handleDeleteMode = async (id: number) => {
+    if (!confirm('Supprimer ce mode de paiement ?')) return
+    await paymentAPI.deleteMode(id)
+    setModes((prev) => prev.filter((m) => m.idMode !== id))
+    toast.success(t('toast.deleted'))
+  }
+
+  const handleSetActive = async (id: number) => {
+    await academicAPI.setActiveAnnee(id)
+    const res = await academicAPI.getAnnees()
+    setAnnees(res.data)
+    toast.success(t('toast.saved'))
+  }
+
+  if (loading) return <LoadingSkeleton rows={4} />
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -55,13 +100,21 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">{t('settings.paymentModes')}</h3>
           <button onClick={() => setModeModal(true)} className="p-1.5 hover:bg-gray-100 rounded text-cameroon-green">
-            <UserPlus size={18} />
+            <Plus size={18} />
           </button>
         </div>
         <div className="flex flex-wrap gap-2">
-          {mockModes.map((m) => (
-            <span key={m.idMode} className="px-3 py-1.5 bg-gray-50 rounded-lg text-sm">{m.libelle}</span>
+          {modes.filter((m) => m.actif).map((m) => (
+            <span key={m.idMode} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg text-sm">
+              {m.libelle}
+              <button onClick={() => handleDeleteMode(m.idMode)} className="text-gray-400 hover:text-red-500 transition">
+                <Trash2 size={12} />
+              </button>
+            </span>
           ))}
+          {modes.filter((m) => m.actif).length === 0 && (
+            <p className="text-sm text-gray-400 italic">{t('common.noData')}</p>
+          )}
         </div>
       </div>
 
@@ -69,9 +122,9 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">{t('settings.academicYear')}</h3>
         </div>
-        <div className="flex gap-3">
-          {mockAnnees.map((a) => (
-            <button key={a.idAnnee} className={`px-4 py-2 rounded-lg text-sm font-medium border ${a.idAnnee === 2 ? 'bg-cameroon-green text-white border-cameroon-green' : 'bg-white text-gray-600 border-gray-300'}`}>
+        <div className="flex gap-3 flex-wrap">
+          {annees.map((a) => (
+            <button key={a.idAnnee} onClick={() => handleSetActive(a.idAnnee)} className={`px-4 py-2 rounded-lg text-sm font-medium border ${a.actif ? 'bg-cameroon-green text-white border-cameroon-green' : 'bg-white text-gray-600 border-gray-300 hover:border-cameroon-green'}`}>
               {a.libelle}
             </button>
           ))}
@@ -79,7 +132,7 @@ export default function SettingsPage() {
       </div>
 
       <Modal open={modeModal} onClose={() => setModeModal(false)} title={t('settings.paymentModes')}>
-        <form onSubmit={(e) => { e.preventDefault(); toast.success(t('toast.saved')); setModeModal(false); setModeForm({ libelle: '' }) }} className="space-y-4">
+        <form onSubmit={handleAddMode} className="space-y-4">
           <div><label className="block text-sm font-medium mb-1">Libellé</label><input type="text" value={modeForm.libelle} onChange={(e) => setModeForm({ ...modeForm, libelle: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
           <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium">{t('common.save')}</button>
         </form>
