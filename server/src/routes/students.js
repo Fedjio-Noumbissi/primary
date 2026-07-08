@@ -228,11 +228,11 @@ router.post('/enroll', authenticate, async (req, res) => {
       const idPers = persResult.insertId
       const hashed = await bcrypt.hash(parent.password || 'password', 10)
       const [userResult] = await pool.query(
-        'INSERT INTO users (name, email, password, role, is_active) VALUES (?, ?, ?, ?, 1)',
-        [`${parent.prenom || ''} ${parent.nom}`.trim(), parent.email, hashed, 'PARENT']
+        'INSERT INTO users (nom, prenom, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+        [parent.nom, parent.prenom || '', parent.email, hashed, 'PARENT']
       )
       await pool.query('UPDATE personnes SET user_id = ? WHERE id_pers = ?', [userResult.insertId, idPers])
-      await pool.query('INSERT INTO Parents (idPers, matricule) VALUES (?, ?)', [idPers, matricule])
+      await pool.query('INSERT INTO Parents (idPers, matricule, idAdmin) VALUES (?, ?, ?)', [idPers, matricule, idAdmin])
       sendWelcomeEmail(parent.email, parent.password || 'password', `${parent.prenom || ''} ${parent.nom}`.trim(), 'parent').catch(console.error)
     }
     res.json({ success: true })
