@@ -6,24 +6,23 @@ import { authenticate, authorize } from '../middleware/auth.js'
 const router = Router()
 
 const roleMap = { 1: 'admin', 2: 'ENSEIGNANT', 3: 'PARENT' }
+const roleToType = { admin: 1, ADMIN: 1, DIRECTEUR: 1, directeur: 1, ENSEIGNANT: 2, enseignant: 2, PARENT: 3, parent: 3 }
 
 router.get('/', authenticate, authorize(1), async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT u.id AS idPers, u.name AS nom, '' AS prenom, u.email, u.role, u.is_active AS actif,
-              p.nom AS pers_nom, p.prenom, p.mobile
-       FROM users u
-       LEFT JOIN personnes p ON p.user_id = u.id
-       ORDER BY u.id`
+      `SELECT id, nom, prenom, email, role, is_active AS actif, telephone
+       FROM users
+       ORDER BY id`
     )
     const mapped = rows.map((r) => ({
-      idPers: r.idPers,
-      nom: r.prenom ? r.pers_nom : r.nom,
+      idPers: r.id,
+      nom: r.nom || '',
       prenom: r.prenom || '',
       email: r.email,
       password: '',
-      typePersonne: r.role === 'admin' ? 1 : r.role === 'ENSEIGNANT' ? 2 : 3,
-      mobile: r.mobile || '',
+      typePersonne: roleToType[r.role] || 3,
+      mobile: r.telephone || '',
       token: '',
       actif: !!r.actif,
     }))
@@ -40,30 +39,10 @@ router.post('/', authenticate, authorize(1), async (req, res) => {
     const role = roleMap[typePersonne] || 'PARENT'
     const hashed = await bcrypt.hash(password, 10)
     const [result] = await pool.query(
-      'INSERT INTO users (name, email, password, role, is_active) VALUES (?, ?, ?, ?, 1)',
-      [nom, email, hashed, role]
+      'INSERT INTO users (nom, prenom, email, password_hash, role, is_active, telephone) VALUES (?, ?, ?, ?, ?, 1, ?)',
+      [nom, prenom || '', email, hashed, role, mobile || null]
     )
     const userId = result.insertId
-
-    let idPers = userId
-    if (prenom || mobile) {
-      const [persResult] = await pool.query(
-        'INSERT INTO personnes (user_id, nom, prenom, mobile, type_personne) VALUES (?, ?, ?, ?, ?)',
-        [userId, nom, prenom || '', mobile || '', role]
-      )
-      idPers = persResult.insertId
-    }
-
-    if (typePersonne === 2) {
-      await pool.query('INSERT INTO enseignants (id_pers, actif) VALUES (?, 1)', [idPers])
-    } else if (typePersonne === 3) {
-      const matricule = req.body.matricule || null
-      if (matricule) {
-        await pool.query('INSERT INTO Parents (idPers, matricule) VALUES (?, ?)', [idPers, matricule])
-      }
-    }
-
-    sendWelcomeEmail(email, password, `${prenom || ''} ${nom}`.trim(), role.toLowerCase()).catch(console.error)
 
     res.status(201).json({
       idPers: userId,
@@ -86,16 +65,10 @@ router.put('/:id', authenticate, authorize(1), async (req, res) => {
   try {
     const { id } = req.params
     const { nom, prenom, email, password, mobile } = req.body
-    await pool.query('UPDATE users SET name = ?, email = ? WHERE id = ?', [nom, email, id])
+    await pool.query('UPDATE users SET nom = ?, prenom = ?, email = ?, telephone = ? WHERE id = ?', [nom, prenom || '', email, mobile || null, id])
     if (password) {
       const hashed = await bcrypt.hash(password, 10)
-      await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, id])
-    }
-    const [existing] = await pool.query('SELECT id_pers FROM personnes WHERE user_id = ?', [id])
-    if (existing.length > 0) {
-      await pool.query('UPDATE personnes SET nom = ?, prenom = ?, mobile = ? WHERE user_id = ?', [nom, prenom || '', mobile || '', id])
-    } else if (prenom || mobile) {
-      await pool.query('INSERT INTO personnes (user_id, nom, prenom, mobile) VALUES (?, ?, ?, ?)', [id, nom, prenom || '', mobile || ''])
+      await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashed, id])
     }
     res.json({ idPers: parseInt(id), nom, prenom: prenom || '', email, password: '', typePersonne: 1, mobile: mobile || '', token: '', actif: true })
   } catch (err) {
@@ -107,8 +80,6 @@ router.put('/:id', authenticate, authorize(1), async (req, res) => {
 router.delete('/:id', authenticate, authorize(1), async (req, res) => {
   try {
     const { id } = req.params
-    await pool.query('DELETE FROM personnes WHERE user_id = ?', [id])
-    await pool.query('DELETE FROM admins WHERE user_id = ?', [id])
     await pool.query('DELETE FROM users WHERE id = ?', [id])
     res.sendStatus(204)
   } catch (err) {
@@ -121,8 +92,9 @@ router.patch('/:id/toggle-active', authenticate, authorize(1), async (req, res) 
   try {
     const { id } = req.params
     await pool.query('UPDATE users SET is_active = NOT is_active WHERE id = ?', [id])
-    const [rows] = await pool.query('SELECT id, name, email, is_active FROM users WHERE id = ?', [id])
-    res.json({ idPers: rows[0].id, nom: rows[0].name, prenom: '', email: rows[0].email, password: '', typePersonne: 1, mobile: '', token: '', actif: !!rows[0].is_active })
+    const [rows] = await pool.query('SELECT id, nom, prenom, email, is_active FROM users WHERE id = ?', [id])
+    const u = rows[0]
+    res.json({ idPers: u.id, nom: u.nom || '', prenom: u.prenom || '', email: u.email, password: '', typePersonne: 1, mobile: '', token: '', actif: !!u.is_active })
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: 'Server error' })
