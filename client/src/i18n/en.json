@@ -2,6 +2,8 @@
   "app.title": "School Management System — Cameroon",
   "app.subtitle": "Primary School",
   "app.loading": "Loading...",
+  "theme.dark": "Dark mode",
+  "theme.light": "Light mode",
 
   "nav.dashboard": "Dashboard",
   "nav.students": "Students",
@@ -19,6 +21,7 @@
   "nav.settings": "Settings",
   "nav.users": "Users",
   "nav.logout": "Logout",
+  "nav.auditLogs": "Audit Log",
 
   "auth.login": "Login",
   "auth.username": "Username",
@@ -143,6 +146,9 @@
   "timetable.class": "Class",
   "timetable.course": "Subject",
   "timetable.add": "Add Session",
+  "timetable.edit": "Edit Session",
+  "timetable.selectCourse": "Please select a subject",
+  "classroom.title": "Classroom",
 
   "exam.title": "Exams",
   "exam.nature": "Exam Type",

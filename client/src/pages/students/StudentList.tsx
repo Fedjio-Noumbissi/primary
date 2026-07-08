@@ -1,11 +1,12 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { studentAPI } from '../../services/api'
-import { Student } from '../../types'
+import { studentAPI, classAPI } from '../../services/api'
+import { Student, Salle } from '../../types'
 import DataTable from '../../components/DataTable'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
-import { Plus, Eye, Edit, UserCheck, ToggleLeft, ToggleRight, Trash2, MoreVertical } from 'lucide-react'
+import Modal from '../../components/Modal'
+import { Plus, Eye, Edit, UserCheck, ToggleLeft, ToggleRight, Trash2, MoreVertical, Download, RefreshCw } from 'lucide-react'
 import { formatDate } from '../../utils/formatters'
 import toast from 'react-hot-toast'
 
@@ -66,20 +67,51 @@ function ActionMenu({ s, handleToggleActive, handleDelete, t }: any) {
   )
 }
 
+function exportCSV(students: Student[]) {
+  const headers = ['Matricule', 'Nom', 'Prénom', 'Date Naissance', 'Lieu Naissance', 'Sexe', 'Langue', 'Classe', 'Salle', 'Statut']
+  const rows = students.map((s) => [
+    s.matricule,
+    s.nom,
+    s.prenom,
+    s.dateNaissance,
+    s.lieuNaissance || '',
+    s.sexe === 1 ? 'M' : 'F',
+    s.langue || '',
+    s.classe || '',
+    s.salle || '',
+    s.actif ? 'Actif' : 'Inactif',
+  ])
+  const csv = [headers.join(','), ...rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `eleves_${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function StudentList() {
   const { t } = useTranslation()
   const [students, setStudents] = useState<Student[]>([])
+  const [salles, setSalles] = useState<Salle[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [classeFilter, setClasseFilter] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [classModal, setClassModal] = useState(false)
+  const [classForm, setClassForm] = useState({ idSalle: 0 })
+  const [busy, setBusy] = useState(false)
 
-  const classes = Array.from(new Set(students.map(s => s.classe).filter(Boolean))) as string[]
+  const classes = useMemo(() => Array.from(new Set(students.map(s => s.classe).filter(Boolean))) as string[], [students])
 
   useEffect(() => {
-    studentAPI.getAll().then((res) => {
-      setStudents(res.data)
-      setLoading(false)
-    })
+    Promise.all([studentAPI.getAll(), classAPI.getSalles()])
+      .then(([sRes, saRes]) => {
+        setStudents(sRes.data)
+        setSalles(saRes.data)
+        setLoading(false)
+      })
   }, [])
 
   const handleToggleActive = async (id: number) => {
@@ -104,6 +136,44 @@ export default function StudentList() {
     const matchClasse = classeFilter ? s.classe === classeFilter : true
     return matchSearch && matchClasse
   })
+
+  const selectedStudents = useMemo(
+    () => students.filter((s) => selectedIds.has(s.matricule)),
+    [students, selectedIds]
+  )
+
+  async function handleBatchToggleActive() {
+    if (selectedIds.size === 0) return
+    setBusy(true)
+    try {
+      const { data } = await studentAPI.batchToggleActive(Array.from(selectedIds))
+      setStudents((prev) => prev.map((s) => selectedIds.has(s.matricule) ? { ...s, actif: !s.actif } : s))
+      toast.success(`${data.updated} élève(s) mis à jour`)
+    } catch { toast.error(t('toast.error')) }
+    finally { setBusy(false) }
+  }
+
+  async function handleBatchChangeClass() {
+    if (selectedIds.size === 0 || !classForm.idSalle) return
+    setBusy(true)
+    try {
+      const { data } = await studentAPI.batchChangeClass(Array.from(selectedIds), classForm.idSalle)
+      setStudents((prev) => prev.map((s) => selectedIds.has(s.matricule)
+        ? { ...s, salle: salles.find((sa) => sa.idSalle === classForm.idSalle)?.libelle || s.salle, classe: salles.find((sa) => sa.idSalle === classForm.idSalle)?.classe || s.classe }
+        : s
+      ))
+      setClassModal(false)
+      setSelectedIds(new Set())
+      toast.success(`${data.updated} élève(s) transféré(s)`)
+    } catch { toast.error(t('toast.error')) }
+    finally { setBusy(false) }
+  }
+
+  function handleExport() {
+    const toExport = selectedIds.size > 0 ? selectedStudents : students
+    exportCSV(toExport)
+    toast.success(`Exporté ${toExport.length} élève(s)`)
+  }
 
   const columns = [
     { key: 'matricule', label: t('student.matricule'), render: (s: Student) => <span className="font-mono">#{s.matricule}</span> },
@@ -146,11 +216,36 @@ export default function StudentList() {
         <LoadingSkeleton />
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 p-5">
+          {selectedIds.size > 0 && (
+            <div className="mb-4 flex items-center justify-between bg-cameroon-green/10 border border-cameroon-green/20 rounded-lg px-4 py-3">
+              <span className="text-sm font-medium text-cameroon-green">
+                {selectedIds.size} élève(s) sélectionné(s)
+              </span>
+              <div className="flex gap-2">
+                <button onClick={() => setClassModal(true)} disabled={busy} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cameroon-green text-white rounded-lg hover:bg-cameroon-green-light transition disabled:opacity-50">
+                  <RefreshCw size={14} />
+                  Changer la classe
+                </button>
+                <button onClick={handleBatchToggleActive} disabled={busy} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition disabled:opacity-50">
+                  <ToggleRight size={14} />
+                  Activer/Désactiver
+                </button>
+                <button onClick={handleExport} disabled={busy} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition disabled:opacity-50">
+                  <Download size={14} />
+                  Exporter
+                </button>
+              </div>
+            </div>
+          )}
           <DataTable
             columns={columns}
             data={filtered}
             search={search}
             onSearch={setSearch}
+            selectable
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            rowId={(s: Student) => s.matricule}
             filters={
               classes.length > 0 && (
                 <select
@@ -171,6 +266,26 @@ export default function StudentList() {
           />
         </div>
       )}
+
+      <Modal open={classModal} onClose={() => setClassModal(false)} title="Changer la classe">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Transférer {selectedIds.size} élève(s) vers une nouvelle classe
+          </p>
+          <div>
+            <label className="block text-sm font-medium mb-1">Salle de classe</label>
+            <select value={classForm.idSalle} onChange={(e) => setClassForm({ idSalle: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">
+              <option value={0}>--</option>
+              {salles.filter((s) => s.actif).map((s) => (
+                <option key={s.idSalle} value={s.idSalle}>{s.libelle} {s.classe ? `(${s.classe})` : ''}</option>
+              ))}
+            </select>
+          </div>
+          <button onClick={handleBatchChangeClass} disabled={busy || !classForm.idSalle} className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium hover:bg-cameroon-green-light transition disabled:opacity-50">
+            {busy ? 'Transfert en cours...' : 'Transférer'}
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }

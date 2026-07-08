@@ -4,6 +4,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import 'dotenv/config'
 
+import { auditMiddleware } from './middleware/audit.js'
+import auditRoutes from './routes/audit.js'
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
 import studentRoutes from './routes/students.js'
@@ -18,6 +20,8 @@ import messageRoutes from './routes/messages.js'
 import parentRoutes from './routes/parents.js'
 import dashboardRoutes from './routes/dashboard.js'
 import reportRoutes from './routes/reports.js'
+import searchRoutes from './routes/search.js'
+import uploadRoutes from './routes/upload.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -28,6 +32,11 @@ app.use(cors())
 app.use(express.json())
 
 app.use('/api/auth', authRoutes)
+
+app.use('/api/audit-logs', auditRoutes)
+
+app.use(auditMiddleware)
+
 app.use('/api/users', userRoutes)
 app.use('/api/students', studentRoutes)
 app.use('/api/teachers', teacherRoutes)
@@ -42,7 +51,12 @@ app.use('/api', parentRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api', reportRoutes)
 
+app.use('/api/search', searchRoutes)
+app.use('/api/upload', uploadRoutes)
+
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
+
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
 const clientDist = path.join(__dirname, '../../client/dist')
 app.use(express.static(clientDist))

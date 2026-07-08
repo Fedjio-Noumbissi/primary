@@ -2,6 +2,8 @@
   "app.title": "Système de Gestion Scolaire — Cameroun",
   "app.subtitle": "École Primaire",
   "app.loading": "Chargement...",
+  "theme.dark": "Mode sombre",
+  "theme.light": "Mode clair",
 
   "nav.dashboard": "Tableau de Bord",
   "nav.students": "Élèves",
@@ -19,6 +21,7 @@
   "nav.settings": "Paramètres",
   "nav.users": "Utilisateurs",
   "nav.logout": "Déconnexion",
+  "nav.auditLogs": "Journal d'Audit",
 
   "auth.login": "Connexion",
   "auth.username": "Nom d'utilisateur",
@@ -143,6 +146,9 @@
   "timetable.class": "Classe",
   "timetable.course": "Matière",
   "timetable.add": "Ajouter une Séance",
+  "timetable.edit": "Modifier la Séance",
+  "timetable.selectCourse": "Veuillez sélectionner une matière",
+  "classroom.title": "Salle de Classe",
 
   "exam.title": "Examens",
   "exam.nature": "Nature de l'Épreuve",

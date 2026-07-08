@@ -4,7 +4,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, GraduationCap, School, Calendar,
   BookOpen, ClipboardList, FileText, CreditCard, Users as ParentIcon,
-  BookMarked, MessageSquare, ShieldAlert, Settings, X, UserCog
+  BookMarked, MessageSquare, ShieldAlert, Settings, X, UserCog, ScrollText
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -31,6 +31,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     { to: '/admin/messages', icon: MessageSquare, label: 'nav.messages' },
     { to: '/admin/discipline', icon: ShieldAlert, label: 'nav.discipline' },
     { to: '/admin/settings', icon: Settings, label: 'nav.settings' },
+    { to: '/admin/audit-logs', icon: ScrollText, label: 'nav.auditLogs' },
   ]
 
   const teacherLinks = [
@@ -57,20 +58,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       <aside
         className={`
           fixed lg:sticky top-0 lg:top-0 left-0 z-20 h-screen
-          bg-white border-r border-gray-200
+          bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700
           transition-transform duration-200 w-64
           ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           overflow-y-auto
         `}
       >
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-slate-700">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-cameroon-green flex items-center justify-center">
               <span className="text-white text-xs font-bold">CPS</span>
             </div>
             <span className="font-bold text-sm text-cameroon-green">{t('app.subtitle')}</span>
           </div>
-          <button onClick={onClose} className="lg:hidden p-1 hover:bg-gray-100 rounded">
+          <button onClick={onClose} className="lg:hidden p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-600 dark:text-slate-300">
             <X size={18} />
           </button>
         </div>
@@ -84,7 +85,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${
                   isActive
                     ? 'bg-cameroon-green text-white font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-cameroon-green'
+                    : 'text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 hover:text-cameroon-green'
                 }`
               }
             >
