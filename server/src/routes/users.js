@@ -45,12 +45,25 @@ router.post('/', authenticate, authorize(1), async (req, res) => {
     )
     const userId = result.insertId
 
+    let idPers = userId
     if (prenom || mobile) {
-      await pool.query(
+      const [persResult] = await pool.query(
         'INSERT INTO personnes (user_id, nom, prenom, mobile, type_personne) VALUES (?, ?, ?, ?, ?)',
         [userId, nom, prenom || '', mobile || '', role]
       )
+      idPers = persResult.insertId
     }
+
+    if (typePersonne === 2) {
+      await pool.query('INSERT INTO enseignants (id_pers, actif) VALUES (?, 1)', [idPers])
+    } else if (typePersonne === 3) {
+      const matricule = req.body.matricule || null
+      if (matricule) {
+        await pool.query('INSERT INTO Parents (idPers, matricule) VALUES (?, ?)', [idPers, matricule])
+      }
+    }
+
+    sendWelcomeEmail(email, password, `${prenom || ''} ${nom}`.trim(), role.toLowerCase()).catch(console.error)
 
     res.status(201).json({
       idPers: userId,

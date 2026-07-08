@@ -42,6 +42,8 @@ export interface Teacher {
   nom: string;
   prenom: string;
   mobile: string;
+  email?: string;
+  password?: string;
   cours: Course[];
   actif: boolean;
   idClasse?: number;
@@ -71,6 +73,8 @@ export interface Salle {
   idClasse: number;
   classe?: string;
   actif: boolean;
+  capacite?: number;
+  occupancy?: number;
 }
 
 export interface AnneeAcademique {
@@ -85,6 +89,9 @@ export interface Trimestre {
   libelle: string;
   periode: string;
   idAca: number;
+  clos?: boolean;
+  dateDebut?: string;
+  dateFin?: string;
 }
 
 export interface Session {
@@ -103,6 +110,7 @@ export interface Course {
   actif: boolean;
   idEnseignant?: number;
   description?: string;
+  couleur?: string;
 }
 
 export interface EmploiDuTemps {
@@ -112,6 +120,10 @@ export interface EmploiDuTemps {
   idClasse: number;
   idCours: number;
   cours?: string;
+  idEnseignant?: number;
+  enseignant?: string;
+  idSalle?: number;
+  salle?: string;
 }
 
 export interface NatureEpreuve {
@@ -213,6 +225,24 @@ export interface Message {
   information: string;
   created_at: string;
   valider: boolean;
+}
+
+export interface SearchResult {
+  students: { matricule: number; nom: string; prenom: string; classe: string | null; salle: string | null }[]
+  teachers: { idEnseignant: number; nom: string; prenom: string; classeLibelle: string | null }[]
+  pages: { label: string; labelEn: string; path: string; icon: string; roles: number[] }[]
+}
+
+export interface AuditLog {
+  id: number;
+  idAdmin: number | null;
+  adminName: string;
+  action: string;
+  entity: string;
+  entityId: number | null;
+  details: any;
+  ip_address: string | null;
+  created_at: string;
 }
 
 export interface DashboardStats {

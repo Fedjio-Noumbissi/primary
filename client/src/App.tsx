@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
 import Navbar from './components/Navbar'
+import CommandPalette from './components/CommandPalette'
 import Login from './pages/auth/Login'
 import AdminDashboard from './pages/dashboard/AdminDashboard'
 import TeacherDashboard from './pages/dashboard/TeacherDashboard'
@@ -24,6 +25,7 @@ import LibraryPage from './pages/library/LibraryPage'
 import MessagePage from './pages/messages/MessagePage'
 import DisciplinePage from './pages/discipline/DisciplinePage'
 import SettingsPage from './pages/settings/SettingsPage'
+import AuditLogsPage from './pages/settings/AuditLogsPage'
 import UserManagement from './pages/users/UserManagement'
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: number[] }) {
@@ -35,15 +37,30 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setPaletteOpen(p => !p)
+      }
+      if (e.key === 'Escape' && paletteOpen) setPaletteOpen(false)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [paletteOpen])
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
+        <Navbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} onOpenPalette={() => setPaletteOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </main>
       </div>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   )
 }
@@ -73,6 +90,7 @@ function AppRoutes() {
         <Route path="messages" element={<MessagePage />} />
         <Route path="discipline" element={<DisciplinePage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="audit-logs" element={<AuditLogsPage />} />
       </Route>
 
       <Route path="/teacher" element={<ProtectedRoute allowedRoles={[2]}><AppLayout><Outlet /></AppLayout></ProtectedRoute>}>

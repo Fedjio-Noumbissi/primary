@@ -37,26 +37,8 @@ export default function PaymentsPage() {
     { key: 'datePaie', label: t('payment.date'), render: (p: Paiement) => formatDate(p.datePaie) },
   ]
 
-  const printReceipt = (p: Paiement) => {
-    const w = window.open('', '_blank')
-    if (!w) return
-    w.document.write(`<html><head><title>${t('payment.receipt')}</title><style>
-      body { font-family: 'Courier New', monospace; padding: 20px; max-width: 400px; margin: auto; }
-      h2 { text-align: center; } table { width: 100%; } td { padding: 4px 0; }
-      .total { font-size: 18px; font-weight: bold; margin-top: 16px; }
-      @media print { body { padding: 0; } }
-    </style></head><body>
-      <h2>${t('payment.receipt')}</h2>
-      <hr/>
-      <table><tr><td>${t('student.nom')}:</td><td>${p.nom} ${p.prenom}</td></tr>
-      <tr><td>${t('payment.montant')}:</td><td>${formatCurrency(p.montant)}</td></tr>
-      <tr><td>${t('payment.mode')}:</td><td>${p.mode}</td></tr>
-      <tr><td>${t('payment.date')}:</td><td>${formatDate(p.datePaie)}</td></tr></table>
-      <hr/><p class="total">${formatCurrency(p.montant)}</p>
-      <p style="text-align:center;margin-top:30px;">${t('common.print')}</p>
-    </body></html>`)
-    w.document.close()
-    w.print()
+  const openReceipt = (id: number) => {
+    window.open(`/api/paiements/${id}/receipt`, '_blank')
   }
 
   return (
@@ -106,8 +88,9 @@ export default function PaymentsPage() {
           columns={columns}
           data={paiements}
           actions={(p: Paiement) => (
-            <button onClick={() => printReceipt(p)} className="p-1.5 hover:bg-gray-100 rounded" title={t('common.print')}>
-              <Printer size={16} />
+            <button onClick={() => openReceipt(p.idPaie)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cameroon-green/10 text-cameroon-green rounded-lg hover:bg-cameroon-green/20 transition" title={t('payment.receipt')}>
+              <Printer size={14} />
+              Reçu
             </button>
           )}
         />

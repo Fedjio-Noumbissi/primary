@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-cameroon-green: #006B3F;
   --color-cameroon-red: #CE1126;
@@ -9,7 +11,16 @@
 }
 
 body {
-  @apply bg-gray-50 text-gray-900 font-sans;
+  @apply bg-gray-50 text-gray-900 font-sans transition-colors duration-300;
+}
+
+.dark body,
+body.dark {
+  @apply bg-slate-900 text-slate-100;
+}
+
+* {
+  @apply transition-colors duration-200;
 }
 
 @media print {
@@ -35,3 +46,46 @@ body {
 }
 
 @page { margin: 15mm; }
+
+.timetable-calendar .fc {
+  font-size: 0.875rem;
+}
+.timetable-calendar .fc .fc-toolbar-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.timetable-calendar .fc .fc-col-header-cell-cushion {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+.timetable-calendar .fc .fc-timegrid-slot {
+  height: 2.5rem;
+}
+.timetable-calendar .fc .fc-event {
+  border-radius: 0.375rem;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.timetable-calendar .fc .fc-timegrid-now-indicator-line {
+  border-color: var(--color-cameroon-red);
+}
+.dark .timetable-calendar .fc {
+  --fc-page-bg-color: #1e293b;
+  --fc-neutral-bg-color: #334155;
+  --fc-border-color: #475569;
+  --fc-button-text-color: #e2e8f0;
+  --fc-button-bg-color: #334155;
+  --fc-button-border-color: #475569;
+  --fc-button-hover-bg-color: #475569;
+  --fc-button-hover-border-color: #64748b;
+  --fc-button-active-bg-color: #1e293b;
+  --fc-event-bg-color: #15803d;
+  --fc-event-border-color: #166534;
+  --fc-event-text-color: #fff;
+  --fc-today-bg-color: rgba(21, 128, 61, 0.1);
+}
+.timetable-calendar .fc .fc-button {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}

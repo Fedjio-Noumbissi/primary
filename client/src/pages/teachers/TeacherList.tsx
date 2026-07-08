@@ -13,7 +13,7 @@ export default function TeacherList() {
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [form, setForm] = useState({ nom: '', prenom: '', mobile: '' })
+  const [form, setForm] = useState({ nom: '', prenom: '', mobile: '', email: '', password: '' })
   const [editId, setEditId] = useState<number | null>(null)
 
   const [courseModalOpen, setCourseModalOpen] = useState(false)
@@ -42,18 +42,21 @@ export default function TeacherList() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      if (editId) await teacherAPI.update(editId, form)
-      else await teacherAPI.create(form)
+      const payload = { ...form }
+      if (!editId && !payload.email) { toast.error('Email requis'); return }
+      if (!editId && !payload.password) { toast.error('Mot de passe requis'); return }
+      if (editId) await teacherAPI.update(editId, payload)
+      else await teacherAPI.create(payload)
       toast.success(t('toast.saved'))
       setModalOpen(false)
-      setForm({ nom: '', prenom: '', mobile: '' })
+      setForm({ nom: '', prenom: '', mobile: '', email: '', password: '' })
       setEditId(null)
       load()
     } catch { toast.error(t('toast.error')) }
   }
 
   const openEdit = (tch: Teacher) => {
-    setForm({ nom: tch.nom, prenom: tch.prenom, mobile: tch.mobile })
+    setForm({ nom: tch.nom, prenom: tch.prenom, mobile: tch.mobile, email: (tch as any).email || '', password: '' })
     setEditId(tch.idEnseignant)
     setModalOpen(true)
   }
@@ -129,7 +132,7 @@ export default function TeacherList() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">{t('teacher.title')}</h1>
         <button
-          onClick={() => { setForm({ nom: '', prenom: '', mobile: '' }); setEditId(null); setModalOpen(true) }}
+          onClick={() => { setForm({ nom: '', prenom: '', mobile: '', email: '', password: '' }); setEditId(null); setModalOpen(true) }}
           className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition"
         >
           <Plus size={16} /> {t('teacher.add')}
@@ -186,6 +189,14 @@ export default function TeacherList() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('teacher.mobile')}</label>
             <input type="text" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required={!editId} placeholder="exemple@email.com" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+            <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editId} placeholder="password" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green" />
           </div>
           <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium hover:bg-cameroon-green-light transition">
             {t('common.save')}

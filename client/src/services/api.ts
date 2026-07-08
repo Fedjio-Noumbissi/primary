@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { User, Student, Teacher, Cycle, Classe, Salle, AnneeAcademique, Trimestre, Session, Course, EmploiDuTemps, NatureEpreuve, Epreuve, Evaluation, Scolarite, Tranche, Mode, Paiement, Livre, Specialite, Message, DashboardStats, Parent } from '../types'
+import { User, Student, Teacher, Cycle, Classe, Salle, AnneeAcademique, Trimestre, Session, Course, EmploiDuTemps, NatureEpreuve, Epreuve, Evaluation, Scolarite, Tranche, Mode, Paiement, Livre, Specialite, Message, DashboardStats, Parent, SearchResult } from '../types'
 
 const api = axios.create({ baseURL: '/api', timeout: 10000 })
 
@@ -39,16 +39,27 @@ export const dashboardAPI = {
 
 export const classAPI = {
   getCycles: () => api.get<Cycle[]>('/cycles'),
+  getArchivedCycles: () => api.get<Cycle[]>('/cycles/archived'),
   createCycle: (data: Partial<Cycle>) => api.post<Cycle>('/cycles', data),
+  toggleArchiveCycle: (id: number) => api.patch<Cycle>(`/cycles/${id}/toggle-archive`),
   getClasses: () => api.get<Classe[]>('/classes'),
+  getArchivedClasses: () => api.get<Classe[]>('/classes/archived'),
   createClass: (data: Partial<Classe>) => api.post<Classe>('/classes', data),
-  getSalles: () => api.get<Salle[]>('/salles'),
-  createSalle: (data: Partial<Salle>) => api.post<Salle>('/salles', data),
+  toggleArchiveClass: (id: number) => api.patch<Classe>(`/classes/${id}/toggle-archive`),
+  setClassTeacher: (id: number, titulaire: number | null) => api.patch<Classe>(`/classes/${id}/titulaire`, { titulaire }),
+  getClassStudentCount: (id: number) => api.get<{ count: number }>(`/classes/${id}/students`),
+  getClassPDF: (id: number) => `/api/classes/${id}/pdf`,
+  getSalles: () => api.get<(Salle & { occupancy: number })[]>('/salles'),
+  createSalle: (data: Partial<Salle & { capacite?: number }>) => api.post<Salle>('/salles', data),
+  toggleActiveSalle: (id: number) => api.patch<Salle>(`/salles/${id}/toggle-active`),
+  updateSalle: (id: number, data: Partial<Salle & { capacite?: number }>) => api.put<Salle>(`/salles/${id}`, data),
 }
 
 export const academicAPI = {
   getAnnees: () => api.get<AnneeAcademique[]>('/annees'),
   createAnnee: (data: Partial<AnneeAcademique>) => api.post<AnneeAcademique>('/annees', data),
+  setActiveAnnee: (id: number) => api.patch<AnneeAcademique>(`/annees/${id}/set-active`),
+  closeTrimestre: (id: number) => api.patch<Trimestre>(`/trimestres/${id}/close`),
   getTrimestres: (idAca?: number) => api.get<Trimestre[]>('/trimestres', { params: { idAca } }),
   createTrimestre: (data: Partial<Trimestre>) => api.post<Trimestre>('/trimestres', data),
   getSessions: (idTrimestre?: number) => api.get<Session[]>('/sessions', { params: { idTrimestre } }),
@@ -59,7 +70,13 @@ export const courseAPI = {
   getAll: () => api.get<Course[]>('/courses'),
   create: (data: Partial<Course>) => api.post<Course>('/courses', data),
   getTimetable: (idClasse?: number) => api.get<EmploiDuTemps[]>('/timetable', { params: { idClasse } }),
+  getTimetableByTeacher: (idEnseignant: number) => api.get<EmploiDuTemps[]>('/timetable', { params: { idEnseignant } }),
+  getTimetableBySalle: (idSalle: number) => api.get<EmploiDuTemps[]>('/timetable', { params: { idSalle } }),
+  checkConflicts: (data: { jour: string; heure: string; idEnseignant?: number; idSalle?: number; excludeId?: number }) =>
+    api.get<{ conflict: boolean; entries: EmploiDuTemps[] }>('/timetable/check-conflicts', { params: data }),
   addTimetableEntry: (data: Partial<EmploiDuTemps>) => api.post<EmploiDuTemps>('/timetable', data),
+  updateTimetableEntry: (id: number, data: Partial<EmploiDuTemps>) => api.put<EmploiDuTemps>(`/timetable/${id}`, data),
+  deleteTimetableEntry: (id: number) => api.delete(`/timetable/${id}`),
 }
 
 export const examAPI = {
@@ -107,6 +124,7 @@ export const userAPI = {
 
 export const parentAPI = {
   getAll: () => api.get<Parent[]>('/parents'),
+  search: (q: string) => api.get<Parent[]>('/parents/search', { params: { q } }),
 }
 
 export const studentAPI = {
@@ -116,9 +134,11 @@ export const studentAPI = {
   update: (id: number, data: Partial<Student>) => api.put<Student>(`/students/${id}`, data),
   delete: (id: number) => api.delete(`/students/${id}`),
   toggleActive: (id: number) => api.patch<Student>(`/students/${id}/toggle-active`),
+  batchToggleActive: (matricules: number[]) => api.patch<{ updated: number }>('/students/batch/toggle-active', { matricules }),
+  batchChangeClass: (matricules: number[], idSalle: number) => api.patch<{ updated: number }>('/students/batch/class', { matricules, idSalle }),
   getGrades: (id: number) => api.get<Evaluation[]>(`/students/${id}/grades`),
   getPayments: (id: number) => api.get<Paiement[]>(`/students/${id}/payments`),
-  enroll: (data: { matricule: number; idSalle: number; idAcademi: number }) => api.post('/students/enroll', data),
+  enroll: (data: { matricule: number; idSalle: number; idAcademi: number; parent?: { nom: string; prenom: string; email: string; password: string; mobile: string } }) => api.post('/students/enroll', data),
 }
 
 export const teacherAPI = {
@@ -128,6 +148,25 @@ export const teacherAPI = {
   toggleActive: (id: number) => api.patch<Teacher>(`/teachers/${id}/toggle-active`),
   assignCourses: (id: number, courseIds: number[]) => api.patch<{ cours: Course[] }>(`/teachers/${id}/courses`, { courseIds }),
   assignClass: (id: number, idClasse: number | null) => api.patch(`/teachers/${id}/class`, { idClasse }),
+}
+
+export const searchAPI = {
+  global: (q: string) => api.get<SearchResult>('/search', { params: { q } }),
+}
+
+export const auditAPI = {
+  getLogs: (params?: { userId?: number; action?: string; entity?: string; page?: number; limit?: number }) =>
+    api.get<{ data: AuditLog[]; total: number; page: number; limit: number }>('/audit-logs', { params }),
+}
+
+export const uploadAPI = {
+  photo: (file: File) => {
+    const fd = new FormData()
+    fd.append('photo', file)
+    return api.post<{ url: string }>('/upload/photo', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
 }
 
 export default api

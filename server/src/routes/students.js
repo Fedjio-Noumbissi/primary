@@ -1,6 +1,8 @@
 import { Router } from 'express'
+import bcrypt from 'bcryptjs'
 import pool from '../db.js'
 import { authenticate } from '../middleware/auth.js'
+import { sendWelcomeEmail } from '../email.js'
 
 pool.query('ALTER TABLE eleves ADD COLUMN idCycle INT NULL').catch(() => {})
 
@@ -131,6 +133,61 @@ router.delete('/:id', authenticate, async (req, res) => {
   }
 })
 
+router.patch('/batch/toggle-active', authenticate, async (req, res) => {
+  try {
+    const { matricules } = req.body
+    if (!Array.isArray(matricules) || matricules.length === 0) {
+      return res.status(400).json({ message: 'matricules must be a non-empty array' })
+    }
+    const placeholders = matricules.map(() => '?').join(',')
+    await pool.query(
+      `UPDATE eleves SET actif = NOT actif WHERE matricule IN (${placeholders})`,
+      matricules
+    )
+    const [rows] = await pool.query(
+      `SELECT * FROM eleves WHERE matricule IN (${placeholders})`,
+      matricules
+    )
+    const mapped = rows.map((r) => ({
+      matricule: parseInt(r.matricule) || r.matricule,
+      actif: !!r.actif,
+    }))
+    res.json({ updated: mapped.length })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+router.patch('/batch/class', authenticate, async (req, res) => {
+  try {
+    const { matricules, idSalle } = req.body
+    if (!Array.isArray(matricules) || matricules.length === 0) {
+      return res.status(400).json({ message: 'matricules must be a non-empty array' })
+    }
+    if (!idSalle) {
+      return res.status(400).json({ message: 'idSalle is required' })
+    }
+    let updated = 0
+    for (const mat of matricules) {
+      const [existing] = await pool.query(
+        'SELECT idFrequente FROM Frequente WHERE matricule = ? ORDER BY idFrequente DESC LIMIT 1',
+        [mat]
+      )
+      if (existing.length) {
+        await pool.query('UPDATE Frequente SET idSalle = ? WHERE idFrequente = ?', [idSalle, existing[0].idFrequente])
+      } else {
+        await pool.query('INSERT INTO Frequente (idSalle, matricule) VALUES (?, ?)', [idSalle, mat])
+      }
+      updated++
+    }
+    res.json({ updated })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 router.patch('/:id/toggle-active', authenticate, async (req, res) => {
   try {
     await pool.query('UPDATE eleves SET actif = NOT actif WHERE matricule = ?', [req.params.id])
@@ -155,13 +212,28 @@ router.patch('/:id/toggle-active', authenticate, async (req, res) => {
 
 router.post('/enroll', authenticate, async (req, res) => {
   try {
-    const { matricule, idSalle, idAcademi } = req.body
+    const { matricule, idSalle, idAcademi, parent } = req.body
     const idAdmin = req.user?.id || 1
     const [existing] = await pool.query('SELECT * FROM Frequente WHERE matricule = ? AND idAcademi = ?', [matricule, idAcademi])
     if (existing.length) {
       await pool.query('UPDATE Frequente SET idSalle = ?, idAdmin = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, idAdmin, matricule, idAcademi])
     } else {
       await pool.query('INSERT INTO Frequente (idSalle, idAcademi, matricule, idAdmin) VALUES (?, ?, ?, ?)', [idSalle, idAcademi, matricule, idAdmin])
+    }
+    if (parent && parent.nom && parent.email) {
+      const [persResult] = await pool.query(
+        "INSERT INTO personnes (nom, prenom, mobile, type_personne) VALUES (?, ?, ?, 'PARENT')",
+        [parent.nom, parent.prenom || '', parent.mobile || '']
+      )
+      const idPers = persResult.insertId
+      const hashed = await bcrypt.hash(parent.password || 'password', 10)
+      const [userResult] = await pool.query(
+        'INSERT INTO users (name, email, password, role, is_active) VALUES (?, ?, ?, ?, 1)',
+        [`${parent.prenom || ''} ${parent.nom}`.trim(), parent.email, hashed, 'PARENT']
+      )
+      await pool.query('UPDATE personnes SET user_id = ? WHERE id_pers = ?', [userResult.insertId, idPers])
+      await pool.query('INSERT INTO Parents (idPers, matricule) VALUES (?, ?)', [idPers, matricule])
+      sendWelcomeEmail(parent.email, parent.password || 'password', `${parent.prenom || ''} ${parent.nom}`.trim(), 'parent').catch(console.error)
     }
     res.json({ success: true })
   } catch (err) {

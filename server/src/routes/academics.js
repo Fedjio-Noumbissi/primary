@@ -72,4 +72,23 @@ router.post('/sessions', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+router.patch('/annees/:id/set-active', async (req, res) => {
+  try {
+    const { id } = req.params
+    await pool.query('UPDATE AnneeAcademique SET actif = (idAnnee = ?)', [Number(id)])
+    const [rows] = await pool.query('SELECT * FROM AnneeAcademique WHERE idAnnee = ?', [Number(id)])
+    res.json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.patch('/trimestres/:id/close', async (req, res) => {
+  try {
+    try { await pool.query('ALTER TABLE Trimestre ADD COLUMN clos TINYINT(1) DEFAULT 0') } catch (_) {}
+    const { id } = req.params
+    await pool.query('UPDATE Trimestre SET clos = 1 WHERE idTrimes = ?', [Number(id)])
+    const [rows] = await pool.query('SELECT * FROM Trimestre WHERE idTrimes = ?', [Number(id)])
+    res.json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 export default router

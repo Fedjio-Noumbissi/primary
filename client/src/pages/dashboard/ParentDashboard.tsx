@@ -1,25 +1,102 @@
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
+import { dashboardAPI, studentAPI, messageAPI } from '../../services/api'
 import { ClipboardList, CreditCard, MessageSquare } from 'lucide-react'
 import StatCard from '../../components/StatCard'
-import { mockStudents, mockEvaluations, mockPaiements, mockMessages } from '../../services/mockData'
-import { formatCurrency } from '../../utils/formatters'
+import LoadingSkeleton from '../../components/LoadingSkeleton'
+import { formatCurrency, formatDate } from '../../utils/formatters'
 import { getGradeColor } from '../../utils/grading'
+
+interface ChildData {
+  matricule: number
+  nom: string
+  prenom: string
+  classe?: string
+  salle?: string
+  langue?: string
+  dateNaissance?: string
+  lieuNaissance?: string
+  sexe?: number
+}
 
 export default function ParentDashboard() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const [children, setChildren] = useState<ChildData[]>([])
+  const [selectedChild, setSelectedChild] = useState<number | null>(null)
+  const [grades, setGrades] = useState<any[]>([])
+  const [payments, setPayments] = useState<any[]>([])
+  const [messages, setMessages] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
-  const child = mockStudents[0]
-  const childGrades = mockEvaluations.filter((e) => e.matricule === child.matricule)
-  const childPayments = mockPaiements.filter((p) => p.matricule === child.matricule)
-  const messages = mockMessages.slice(0, 3)
+  useEffect(() => {
+    if (!user?.idPers) { setLoading(false); setError(true); return }
+    dashboardAPI.getParentData(user.idPers)
+      .then((res) => {
+        const kids = res.data.children || []
+        setChildren(kids)
+        if (kids.length > 0) {
+          setSelectedChild(kids[0].matricule)
+        }
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }, [user])
+
+  useEffect(() => {
+    if (!selectedChild) return
+    Promise.all([
+      studentAPI.getGrades(selectedChild),
+      studentAPI.getPayments(selectedChild),
+      messageAPI.getAll(),
+    ]).then(([gradesRes, paymentsRes, messagesRes]) => {
+      setGrades(gradesRes.data)
+      setPayments(paymentsRes.data)
+      setMessages(messagesRes.data.slice(0, 3))
+    }).catch((e) => console.error('Parent data fetch error:', e))
+  }, [selectedChild])
+
+  if (loading) return <LoadingSkeleton rows={4} />
+  if (error) return <div className="text-center py-10"><p className="text-red-500 font-medium">Erreur de chargement du tableau de bord</p><p className="text-gray-400 text-sm mt-1">Vérifie que le serveur est bien démarré</p></div>
+
+  const child = children.find((c) => c.matricule === selectedChild) || children[0]
+
+  if (!child) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">
+          {t('parent.title')} — {user?.nom} {user?.prenom}
+        </h1>
+        <p className="text-gray-500 italic">{t('common.noData')}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">
         {t('parent.title')} — {user?.nom} {user?.prenom}
       </h1>
+
+      {children.length > 1 && (
+        <div className="flex gap-2">
+          {children.map((c) => (
+            <button
+              key={c.matricule}
+              onClick={() => setSelectedChild(c.matricule)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition border ${
+                selectedChild === c.matricule
+                  ? 'bg-cameroon-green text-white border-cameroon-green'
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-cameroon-green'
+              }`}
+            >
+              {c.nom} {c.prenom}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <h3 className="font-semibold text-gray-900 mb-3">{t('parent.childInfo')}</h3>
@@ -34,18 +111,18 @@ export default function ParentDashboard() {
           </div>
           <div>
             <p className="text-gray-400">{t('student.classe')}</p>
-            <p className="font-medium">{child.classe}</p>
+            <p className="font-medium">{child.classe || child.salle || '—'}</p>
           </div>
           <div>
             <p className="text-gray-400">{t('student.langue')}</p>
-            <p className="font-medium">{child.langue}</p>
+            <p className="font-medium">{child.langue || '—'}</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title={t('dashboard.childGrades')} value={childGrades.length} icon={<ClipboardList size={22} />} />
-        <StatCard title={t('dashboard.childPayments')} value={formatCurrency(childPayments.reduce((s, p) => s + p.montant, 0))} icon={<CreditCard size={22} />} color="text-cameroon-green" />
+        <StatCard title={t('dashboard.childGrades')} value={grades.length} icon={<ClipboardList size={22} />} />
+        <StatCard title={t('dashboard.childPayments')} value={formatCurrency(payments.reduce((s, p) => s + p.montant, 0))} icon={<CreditCard size={22} />} color="text-cameroon-green" />
         <StatCard title={t('dashboard.messages')} value={messages.length} icon={<MessageSquare size={22} />} />
       </div>
 
@@ -53,24 +130,30 @@ export default function ParentDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="font-semibold text-gray-900 mb-4">{t('parent.grades')}</h3>
           <div className="space-y-2">
-            {childGrades.map((g) => (
+            {grades.map((g: any) => (
               <div key={g.idEval} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
-                <span>{g.matiere}</span>
+                <span>{g.matiere || g.libelle}</span>
                 <span className={`font-semibold ${getGradeColor(g.note)}`}>{g.note}/20</span>
               </div>
             ))}
+            {grades.length === 0 && (
+              <p className="text-sm text-gray-400 italic">{t('common.noData')}</p>
+            )}
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="font-semibold text-gray-900 mb-4">{t('parent.messages')}</h3>
           <div className="space-y-3">
-            {messages.map((m) => (
-              <div key={m.idMessages} className="px-3 py-2 bg-gray-50 rounded-lg text-sm">
+            {messages.map((m: any) => (
+              <div key={m.idMessages || m.id} className="px-3 py-2 bg-gray-50 rounded-lg text-sm">
                 <p className="font-medium">{m.objet}</p>
                 <p className="text-gray-500 text-xs mt-1">{m.information}</p>
               </div>
             ))}
+            {messages.length === 0 && (
+              <p className="text-sm text-gray-400 italic">{t('common.noData')}</p>
+            )}
           </div>
         </div>
       </div>

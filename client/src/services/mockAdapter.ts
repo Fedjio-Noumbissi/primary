@@ -205,6 +205,20 @@ mock.onPost('/salles').reply((config) => {
   return [201, s]
 })
 
+mock.onPatch(/\/annees\/(\d+)\/set-active/).reply((config) => {
+  const id = parseInt(config.url!.match(/\/annees\/(\d+)\/set-active/)![1])
+  data.mockAnnees.forEach((a) => { a.actif = a.idAnnee === id })
+  const annee = data.mockAnnees.find((a) => a.idAnnee === id)
+  return annee ? [200, annee] : [404]
+})
+
+mock.onPatch(/\/trimestres\/(\d+)\/close/).reply((config) => {
+  const id = parseInt(config.url!.match(/\/trimestres\/(\d+)\/close/)![1])
+  const t = data.mockTrimestres.find((tr) => tr.idTrimes === id)
+  if (t) { t.clos = true; return [200, t] }
+  return [404]
+})
+
 mock.onGet('/annees').reply(() => [200, data.mockAnnees])
 mock.onPost('/annees').reply((config) => {
   const body = JSON.parse(config.data || '{}')
@@ -246,16 +260,49 @@ mock.onPost('/courses').reply((config) => {
 })
 
 mock.onGet('/timetable').reply((config) => {
-  const idClasse = config.params?.idClasse
+  const { idClasse, idEnseignant, idSalle } = config.params || {}
   let res = data.mockEmplois
-  if (idClasse) res = res.filter((e) => e.idClasse === idClasse)
+  if (idClasse) res = res.filter((e) => e.idClasse === Number(idClasse))
+  if (idEnseignant) res = res.filter((e) => e.idEnseignant === Number(idEnseignant))
+  if (idSalle) res = res.filter((e) => e.idSalle === Number(idSalle))
   return [200, res]
 })
+
+mock.onGet('/timetable/check-conflicts').reply((config) => {
+  const { jour, heure, idEnseignant, idSalle, excludeId } = config.params || {}
+  const conflicting = data.mockEmplois.filter((e) => {
+    if (e.jour !== jour || e.heure !== heure) return false
+    if (excludeId && e.idTemps === Number(excludeId)) return false
+    if (idEnseignant && e.idEnseignant === Number(idEnseignant)) return true
+    if (idSalle && e.idSalle === Number(idSalle)) return true
+    return false
+  })
+  return [200, { conflict: conflicting.length > 0, entries: conflicting }]
+})
+
 mock.onPost('/timetable').reply((config) => {
   const body = JSON.parse(config.data || '{}')
   const t = { ...body, idTemps: data.mockEmplois.length + 1 }
   data.mockEmplois.push(t)
   return [201, t]
+})
+
+mock.onPut(/\/timetable\/(\d+)/).reply((config) => {
+  const id = parseInt(config.url!.match(/\/timetable\/(\d+)/)![1])
+  const body = JSON.parse(config.data || '{}')
+  const idx = data.mockEmplois.findIndex((e) => e.idTemps === id)
+  if (idx >= 0) {
+    data.mockEmplois[idx] = { ...data.mockEmplois[idx], ...body }
+    return [200, data.mockEmplois[idx]]
+  }
+  return [404]
+})
+
+mock.onDelete(/\/timetable\/(\d+)/).reply((config) => {
+  const id = parseInt(config.url!.match(/\/timetable\/(\d+)/)![1])
+  const idx = data.mockEmplois.findIndex((e) => e.idTemps === id)
+  if (idx >= 0) { data.mockEmplois.splice(idx, 1); return [200, { success: true }] }
+  return [404]
 })
 
 mock.onGet('/natures').reply(() => [200, data.mockNatures])

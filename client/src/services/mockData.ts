@@ -41,12 +41,12 @@ export const mockSalles: Salle[] = [
 
 export const mockAnnees: AnneeAcademique[] = [
   { idAnnee: 1, libelle: '2024-2025', periode: 'Septembre 2024 - Juin 2025' },
-  { idAnnee: 2, libelle: '2025-2026', periode: 'Septembre 2025 - Juin 2026' },
+  { idAnnee: 2, libelle: '2025-2026', periode: 'Septembre 2025 - Juin 2026', actif: true },
   { idAnnee: 3, libelle: '2026-2027', periode: 'Septembre 2026 - Juin 2027' },
 ]
 
 export const mockTrimestres: Trimestre[] = [
-  { idTrimes: 1, libelle: '1er Trimestre', periode: 'Sept-Nov', idAca: 2 },
+  { idTrimes: 1, libelle: '1er Trimestre', periode: 'Sept-Nov', idAca: 2, clos: true },
   { idTrimes: 2, libelle: '2e Trimestre', periode: 'Déc-Fév', idAca: 2 },
   { idTrimes: 3, libelle: '3e Trimestre', periode: 'Mar-Juin', idAca: 2 },
 ]
