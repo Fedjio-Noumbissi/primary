@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Course, EmploiDuTemps, Classe, Teacher, Salle, Cycle } from '../../types'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import Modal from '../../components/Modal'
-import { Plus, Printer, AlertTriangle, FileDown, Trash2 } from 'lucide-react'
+import { Plus, Printer, AlertTriangle, FileDown, Trash2, Edit3 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const DAY_MAP: Record<string, number> = {
@@ -76,7 +76,8 @@ export default function CoursesPage() {
   const [timetable, setTimetable] = useState<EmploiDuTemps[]>([])
   const [loading, setLoading] = useState(true)
   const [courseModal, setCourseModal] = useState(false)
-  const [courseForm, setCourseForm] = useState({ libelle: '', coefficient: 1, idClasse: 0 })
+  const [courseForm, setCourseForm] = useState({ libelle: '', coefficient: 1, idClasses: [] as number[] })
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null)
   const [slotInfo, setSlotInfo] = useState<SlotInfo | null>(null)
   const [slotModal, setSlotModal] = useState(false)
   const [slotForm, setSlotForm] = useState({ idCycle: 0, idClasse: 0, idCours: 0, idEnseignant: 0, idSalle: 0 })
@@ -120,9 +121,9 @@ export default function CoursesPage() {
         }
         return r.data
       }),
-      classAPI.getSalles(),
-      classAPI.getCycles(),
-      classAPI.getClasses(),
+      classAPI.getSalles().then(r => { setSalles(r.data); return r.data }),
+      classAPI.getCycles().then(r => { setCycles(r.data); return r.data }),
+      classAPI.getClasses().then(r => { setClasses(r.data); return r.data }),
     ]).then(([, t]) => {
       setTimetable(t.data)
     }).catch(err => {
@@ -329,7 +330,7 @@ export default function CoursesPage() {
   )
 
   const filteredCourses = selectedFilter && viewMode === 'classe'
-    ? courses.filter((c) => c.idClasse === selectedFilter)
+    ? courses.filter((c) => (c.classes || []).some(cls => cls.idClasse === selectedFilter) || c.idClasse === selectedFilter)
     : courses
 
   const filterOptions = useMemo(() => {
@@ -397,7 +398,7 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
             <FileDown size={16} /> PDF
           </button>
           {!isTeacher && (
-            <button onClick={() => { setCourseForm({ libelle: '', coefficient: 1, idClasse: classes[0]?.idClasse || 0 }); setCourseModal(true) }} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
+            <button onClick={() => { setCourseForm({ libelle: '', coefficient: 1, idClasses: [] }); setCourseModal(true) }} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
               <Plus size={16} /> {t('course.add')}
             </button>
           )}
@@ -414,14 +415,26 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
               <div key={c.idCours} className="px-4 py-3 bg-gray-50 rounded-lg text-sm flex items-center justify-between">
                 <span className="flex items-center gap-2 font-medium">
                   <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  {c.libelle}
+                  <div>
+                    <span>{c.libelle}</span>
+                    <div className="flex gap-1 mt-0.5">
+                      {((c.classes && c.classes.length > 0 ? c.classes : [{ idClasse: c.idClasse }]) as { idClasse: number; libelle?: string }[]).map((cls) => (
+                        <span key={cls.idClasse} className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">{cls.libelle || classes.find(ca => ca.idClasse === cls.idClasse)?.libelle || '?'}</span>
+                      ))}
+                    </div>
+                  </div>
                 </span>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 shrink-0">
                   <span className="text-gray-400">Coeff {c.coefficient}</span>
                   {!isTeacher && (
-                    <button onClick={() => handleDeleteCourse(c.idCours)} className="text-gray-400 hover:text-red-500 transition" title="Supprimer">
-                      <Trash2 size={14} />
-                    </button>
+                    <>
+                      <button onClick={() => { setEditingCourse(c); setCourseForm({ libelle: c.libelle, coefficient: c.coefficient, idClasses: (c.classes || []).map(cls => cls.idClasse) }); setCourseModal(true) }} className="text-gray-400 hover:text-blue-500 transition" title="Modifier">
+                        <Edit3 size={14} />
+                      </button>
+                      <button onClick={() => handleDeleteCourse(c.idCours)} className="text-gray-400 hover:text-red-500 transition" title="Supprimer">
+                        <Trash2 size={14} />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -544,11 +557,11 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
       </Modal>
 
       {/* Course modal */}
-      <Modal open={courseModal} onClose={() => setCourseModal(false)} title={t('course.add')}>
-        <form onSubmit={async (e) => { e.preventDefault(); if (!courseForm.idClasse) { toast.error('Sélectionnez une classe'); return }; await courseAPI.create(courseForm); toast.success(t('toast.saved')); setCourseModal(false); setCourseForm({ libelle: '', coefficient: 1, idClasse: 0 }); load() }} className="space-y-4">
+      <Modal open={courseModal} onClose={() => { setCourseModal(false); setEditingCourse(null) }} title={editingCourse ? 'Modifier la matière' : t('course.add')}>
+        <form onSubmit={async (e) => { e.preventDefault(); if (!courseForm.idClasses.length) { toast.error('Sélectionnez au moins une classe'); return }; if (editingCourse) { await courseAPI.update(editingCourse.idCours, { ...courseForm, idClasses: courseForm.idClasses }) } else { await courseAPI.create({ ...courseForm, idClasses: courseForm.idClasses }) }; toast.success(t('toast.saved')); setCourseModal(false); setEditingCourse(null); setCourseForm({ libelle: '', coefficient: 1, idClasses: [] }); load() }} className="space-y-4">
           <div><label className="block text-sm font-medium mb-1">{t('course.libelle')}</label><input type="text" value={courseForm.libelle} onChange={(e) => setCourseForm({ ...courseForm, libelle: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">{t('course.coefficient')}</label><input type="number" min={1} max={5} value={courseForm.coefficient} onChange={(e) => setCourseForm({ ...courseForm, coefficient: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-          <div><label className="block text-sm font-medium mb-1">Classe</label><select value={courseForm.idClasse} onChange={(e) => setCourseForm({ ...courseForm, idClasse: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm"><option value={0}>--</option>{classes.map((c) => <option key={c.idClasse} value={c.idClasse}>{c.libelle}</option>)}</select></div>
+          <div><label className="block text-sm font-medium mb-1">Classes</label><div className="max-h-40 overflow-y-auto border rounded-lg p-2 space-y-1">{classes.map((c) => <label key={c.idClasse} className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={courseForm.idClasses.includes(c.idClasse)} onChange={(e) => setCourseForm({ ...courseForm, idClasses: e.target.checked ? [...courseForm.idClasses, c.idClasse] : courseForm.idClasses.filter(id => id !== c.idClasse) })} className="rounded" />{c.libelle}</label>)}</div></div>
           <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium">{t('common.save')}</button>
         </form>
       </Modal>
@@ -585,7 +598,7 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
                 <label className="block text-sm font-medium mb-1">{t('timetable.course')}</label>
                 <select value={slotForm.idCours} onChange={(e) => setSlotForm({ ...slotForm, idCours: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">
                   <option value={0}>--</option>
-                  {filteredCourses.map((c) => <option key={c.idCours} value={c.idCours}>{c.libelle}</option>)}
+                  {courses.filter(c => !slotForm.idClasse || (c.classes || []).some(cls => cls.idClasse === slotForm.idClasse) || c.idClasse === slotForm.idClasse).map((c) => <option key={c.idCours} value={c.idCours}>{c.libelle}</option>)}
                 </select>
               </div>
               <div>

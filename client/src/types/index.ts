@@ -114,6 +114,7 @@ export interface Course {
   note: number;
   coefficient: number;
   idClasse: number;
+  classes?: { idClasse: number; libelle?: string }[];
   actif: boolean;
   idEnseignant?: number;
   description?: string;

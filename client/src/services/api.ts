@@ -72,6 +72,7 @@ export const academicAPI = {
 export const courseAPI = {
   getAll: () => api.get<Course[]>('/courses'),
   create: (data: Partial<Course>) => api.post<Course>('/courses', data),
+  update: (id: number, data: Partial<Course>) => api.put<Course>(`/courses/${id}`, data),
   delete: (id: number) => api.delete(`/courses/${id}`),
   getTimetable: (idClasse?: number) => api.get<EmploiDuTemps[]>('/timetable', { params: { idClasse } }),
   getTimetableByTeacher: (idEnseignant: number) => api.get<EmploiDuTemps[]>('/timetable', { params: { idEnseignant } }),

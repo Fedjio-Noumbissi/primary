@@ -77,7 +77,9 @@ async function migrate() {
     "ALTER TABLE Discipline MODIFY COLUMN points INT NOT NULL DEFAULT 0",
     'ALTER TABLE AnneeAcademique ADD COLUMN isDelete TINYINT(1) DEFAULT 0',
     'ALTER TABLE AnneeAcademique ADD COLUMN actif TINYINT(1) DEFAULT 0',
+    'ALTER TABLE AnneeAcademique ADD COLUMN periode VARCHAR(50) NULL',
     'ALTER TABLE Trimestre ADD COLUMN clos TINYINT(1) DEFAULT 0',
+    'ALTER TABLE Trimestre ADD COLUMN periode VARCHAR(100) NULL',
   ]
   for (const sql of alters) {
     try { await pool.query(sql) } catch (e) { /* column may already exist */ }

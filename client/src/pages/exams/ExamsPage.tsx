@@ -30,7 +30,7 @@ export default function ExamsPage() {
   const [gradeModal, setGradeModal] = useState(false)
   const [bulkModal, setBulkModal] = useState(false)
   const [epreuveForm, setEpreuveForm] = useState({ libelle: '', idNature: 0, idPers: 1 })
-  const [gradeForm, setGradeForm] = useState({ note: 0, matricule: 0, idCours: 0, idSession: 0, idEpreuve: 0, idPers: 1 })
+  const [gradeForm, setGradeForm] = useState({ note: 0, matricule: 0, idCours: 0, idSession: 0, idEpreuve: 0 })
   const [bulkGrades, setBulkGrades] = useState<{ matricule: number; note: number }[]>([])
   const [filterClasse, setFilterClasse] = useState('')
 
@@ -116,7 +116,7 @@ export default function ExamsPage() {
     }
     try {
       const data = bulkGrades.map((bg) => ({
-        ...bg, idCours: gradeForm.idCours, idSession: gradeForm.idSession, idEpreuve: gradeForm.idEpreuve, idPers: 1,
+        ...bg, idCours: gradeForm.idCours, idSession: gradeForm.idSession, idEpreuve: gradeForm.idEpreuve,
         matiere: courses.find((c) => c.idCours === gradeForm.idCours)?.libelle || '',
         appreciation: getAppreciation(bg.note),
       }))
@@ -137,7 +137,7 @@ export default function ExamsPage() {
           <button onClick={bulkInit} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
             <Plus size={16} /> {t('grade.bulk')}
           </button>
-          <button onClick={() => { setGradeForm({ note: 0, matricule: 0, idCours: 0, idSession: filteredSessions[0]?.idSession || 0, idEpreuve: epreuves[0]?.idEpreuve || 0, idPers: 1 }); setGradeModal(true) }} className="flex items-center gap-2 px-4 py-2 border border-cameroon-green text-cameroon-green rounded-lg text-sm hover:bg-cameroon-green hover:text-white transition">
+          <button onClick={() => { setGradeForm({ note: 0, matricule: 0, idCours: 0, idSession: filteredSessions[0]?.idSession || 0, idEpreuve: epreuves[0]?.idEpreuve || 0 }); setGradeModal(true) }} className="flex items-center gap-2 px-4 py-2 border border-cameroon-green text-cameroon-green rounded-lg text-sm hover:bg-cameroon-green hover:text-white transition">
             <Plus size={16} /> {t('grade.title')}
           </button>
           <button onClick={() => setEpreuveModal(true)} className="flex items-center gap-2 px-4 py-2 border border-cameroon-green text-cameroon-green rounded-lg text-sm hover:bg-cameroon-green hover:text-white transition">
@@ -194,7 +194,7 @@ export default function ExamsPage() {
         </Modal>
 
       <Modal open={gradeModal} onClose={() => setGradeModal(false)} title={t('grade.title')}>
-        <form onSubmit={async (e) => { e.preventDefault(); if (!gradeForm.matricule || !gradeForm.idCours || !gradeForm.idEpreuve || !gradeForm.idSession) { toast.error(i18n.language === 'fr' ? 'Veuillez remplir tous les champs' : 'Please fill all fields'); return } try { await examAPI.createEvaluation({ ...gradeForm, appreciation: getAppreciation(gradeForm.note) }); toast.success(t('toast.saved')); setGradeModal(false); setGradeForm({ note: 0, matricule: 0, idCours: 0, idSession: filteredSessions[0]?.idSession || 0, idEpreuve: epreuves[0]?.idEpreuve || 0, idPers: 1 }); load() } catch (err: any) { toast.error(err?.response?.data?.error || err.message || 'Erreur') } }} className="space-y-4">
+        <form onSubmit={async (e) => { e.preventDefault(); if (!gradeForm.matricule || !gradeForm.idCours || !gradeForm.idEpreuve || !gradeForm.idSession) { toast.error(i18n.language === 'fr' ? 'Veuillez remplir tous les champs' : 'Please fill all fields'); return } try { await examAPI.createEvaluation({ ...gradeForm, appreciation: getAppreciation(gradeForm.note) }); toast.success(t('toast.saved')); setGradeModal(false); setGradeForm({ note: 0, matricule: 0, idCours: 0, idSession: filteredSessions[0]?.idSession || 0, idEpreuve: epreuves[0]?.idEpreuve || 0 }); load() } catch (err: any) { toast.error(err?.response?.data?.error || err.message || 'Erreur') } }} className="space-y-4">
           <div><label className="block text-sm font-medium mb-1">{t('grade.student')}</label><select value={gradeForm.matricule} onChange={(e) => setGradeForm({ ...gradeForm, matricule: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm"><option value="">{i18n.language === 'fr' ? 'Choisir un élève' : 'Select a student'}</option>{filteredStudents.map((s: any) => <option key={s.matricule} value={s.matricule}>{s.nom} {s.prenom}</option>)}</select></div>
           <div><label className="block text-sm font-medium mb-1">{t('course.libelle')}</label><select value={gradeForm.idCours} onChange={(e) => setGradeForm({ ...gradeForm, idCours: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm"><option value="">{i18n.language === 'fr' ? 'Choisir une matière' : 'Select a course'}</option>{filteredCourses.map((c: any) => <option key={c.idCours} value={c.idCours}>{c.libelle}</option>)}</select></div>
           <div className="grid grid-cols-2 gap-4">
