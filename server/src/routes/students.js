@@ -4,9 +4,6 @@ import pool from '../db.js'
 import { authenticate } from '../middleware/auth.js'
 import { sendWelcomeEmail } from '../email.js'
 
-pool.query('ALTER TABLE eleves ADD COLUMN idCycle INT NULL').catch(() => {})
-pool.query("ALTER TABLE Parents MODIFY COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP").catch(() => {})
-
 const router = Router()
 
 router.get('/', authenticate, async (req, res) => {

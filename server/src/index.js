@@ -35,7 +35,7 @@ const PORT = process.env.PORT || 3001
 app.use(cors())
 app.use(express.json())
 
-;(async function migrate() {
+async function migrate() {
   const alters = [
     'ALTER TABLE Scolarite ADD COLUMN idClasse INT NULL',
     'ALTER TABLE Scolarite ADD COLUMN inscription DOUBLE DEFAULT 0',
@@ -52,6 +52,7 @@ app.use(express.json())
     'ALTER TABLE Salle ADD COLUMN actif TINYINT DEFAULT 1',
     'ALTER TABLE Salle ADD COLUMN capacite INT NULL',
     'ALTER TABLE Salle ADD COLUMN idAdmin INT NULL',
+    "ALTER TABLE Salle MODIFY COLUMN surface VARCHAR(100) NULL",
     'ALTER TABLE Cours ADD COLUMN idEnseignant INT NULL',
     'ALTER TABLE Cours ADD COLUMN actif TINYINT DEFAULT 1',
     'ALTER TABLE Cours ADD COLUMN isDelete TINYINT DEFAULT 0',
@@ -66,12 +67,34 @@ app.use(express.json())
     'ALTER TABLE Personne ADD COLUMN isDelete TINYINT DEFAULT 0',
     'ALTER TABLE Parents ADD COLUMN isDelete TINYINT DEFAULT 0',
     'ALTER TABLE Epreuve ADD COLUMN isDelete TINYINT DEFAULT 0',
+    'ALTER TABLE eleves ADD COLUMN idCycle INT NULL',
+    "ALTER TABLE Parents MODIFY COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP",
+    'ALTER TABLE EmploiDuTemps ADD COLUMN idEnseignant INT NULL',
+    'ALTER TABLE EmploiDuTemps ADD COLUMN idSalle INT NULL',
+    "ALTER TABLE Cours ADD COLUMN couleur VARCHAR(7) DEFAULT NULL",
+    'CREATE TABLE IF NOT EXISTS PaiementTranche (id INTEGER PRIMARY KEY AUTO_INCREMENT, idPaie INTEGER NOT NULL, idTranche INTEGER NOT NULL, UNIQUE KEY uq_paie_tranche (idPaie, idTranche))',
+    'ALTER TABLE Rapport ADD COLUMN idDiscipline INT NULL',
+    "ALTER TABLE Discipline MODIFY COLUMN points INT NOT NULL DEFAULT 0",
+    'ALTER TABLE AnneeAcademique ADD COLUMN isDelete TINYINT(1) DEFAULT 0',
+    'ALTER TABLE AnneeAcademique ADD COLUMN actif TINYINT(1) DEFAULT 0',
+    'ALTER TABLE Trimestre ADD COLUMN clos TINYINT(1) DEFAULT 0',
   ]
   for (const sql of alters) {
     try { await pool.query(sql) } catch (e) { /* column may already exist */ }
   }
-}())
-pool.query('CREATE TABLE IF NOT EXISTS PaiementTranche (id INTEGER PRIMARY KEY AUTO_INCREMENT, idPaie INTEGER NOT NULL, idTranche INTEGER NOT NULL, UNIQUE KEY uq_paie_tranche (idPaie, idTranche))').catch(() => {})
+}
+
+async function start() {
+  await migrate()
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
+  }).on('error', (err) => {
+    console.error('Failed to start server:', err.message)
+    process.exit(1)
+  })
+}
+
+start()
 app.use('/api/auth', authRoutes)
 
 
@@ -103,11 +126,4 @@ const clientDist = path.join(__dirname, '../../client/dist')
 app.use(express.static(clientDist))
 app.get('*', (_req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'))
-})
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-}).on('error', (err) => {
-  console.error('Failed to start server:', err.message)
-  process.exit(1)
 })

@@ -86,29 +86,35 @@ export default function ClassList() {
 
   async function handleCycle(e: React.FormEvent) {
     e.preventDefault()
-    await classAPI.createCycle(cycleForm)
-    toast.success(t('toast.saved'))
-    setCycleModal(false)
-    setCycleForm({ libelle: '', description: '' })
-    load()
+    try {
+      await classAPI.createCycle(cycleForm)
+      toast.success(t('toast.saved'))
+      setCycleModal(false)
+      setCycleForm({ libelle: '', description: '' })
+      load()
+    } catch { toast.error(t('toast.error')) }
   }
 
   async function handleClass(e: React.FormEvent) {
     e.preventDefault()
-    await classAPI.createClass(classForm)
-    toast.success(t('toast.saved'))
-    setClassModal(false)
-    setClassForm({ libelle: '', idCycle: 0 })
-    load()
+    try {
+      await classAPI.createClass(classForm)
+      toast.success(t('toast.saved'))
+      setClassModal(false)
+      setClassForm({ libelle: '', idCycle: 0 })
+      load()
+    } catch { toast.error(t('toast.error')) }
   }
 
   async function handleSalle(e: React.FormEvent) {
     e.preventDefault()
-    await classAPI.createSalle(salleForm)
-    toast.success(t('toast.saved'))
-    setSalleModal(false)
-    setSalleForm({ libelle: '', position: '', surface: '', capacite: 0, idClasse: 0 })
-    load()
+    try {
+      await classAPI.createSalle(salleForm)
+      toast.success(t('toast.saved'))
+      setSalleModal(false)
+      setSalleForm({ libelle: '', position: '', surface: '', capacite: 0, idClasse: 0 })
+      load()
+    } catch { toast.error(t('toast.error')) }
   }
 
   async function handleToggleActiveSalle(id: number) {

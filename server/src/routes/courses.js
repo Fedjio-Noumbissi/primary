@@ -3,10 +3,6 @@ import pool from '../db.js'
 
 const router = Router()
 
-pool.query('ALTER TABLE EmploiDuTemps ADD COLUMN idEnseignant INT NULL').catch(() => {})
-pool.query('ALTER TABLE EmploiDuTemps ADD COLUMN idSalle INT NULL').catch(() => {})
-pool.query("ALTER TABLE Cours ADD COLUMN couleur VARCHAR(7) DEFAULT NULL").catch(() => {})
-
 router.get('/courses', async (_req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM Cours WHERE isDelete = 0')

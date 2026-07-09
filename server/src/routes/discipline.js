@@ -1,9 +1,6 @@
 import { Router } from 'express'
 import pool from '../db.js'
 
-pool.query('ALTER TABLE Rapport ADD COLUMN idDiscipline INT NULL').catch(() => {})
-pool.query("ALTER TABLE Discipline MODIFY COLUMN points INT NOT NULL DEFAULT 0").catch(() => {})
-
 const router = Router()
 
 router.get('/discipline', async (_req, res) => {

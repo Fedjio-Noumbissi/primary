@@ -23,7 +23,8 @@ router.get('/cycles/archived', async (_req, res) => {
 router.post('/cycles', async (req, res) => {
   try {
     const { libelle, description } = req.body
-    const [result] = await pool.query('INSERT INTO Cycle (libelle, description, idAdmin) VALUES (?, ?, 1)', [libelle, description || ''])
+    const now = new Date()
+    const [result] = await pool.query('INSERT INTO Cycle (libelle, description, idAdmin, createdAt, updatedAt) VALUES (?, ?, 1, ?, ?)', [libelle, description || '', now, now])
     const [rows] = await pool.query('SELECT * FROM Cycle WHERE idCycle = ?', [result.insertId])
     res.status(201).json(rows[0])
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -76,7 +77,8 @@ router.get('/classes/archived', async (_req, res) => {
 router.post('/classes', async (req, res) => {
   try {
     const { libelle, idCycle } = req.body
-    const [result] = await pool.query('INSERT INTO Classe (libelle, idCycle, idAdmin) VALUES (?, ?, 1)', [libelle, idCycle])
+    const now = new Date()
+    const [result] = await pool.query('INSERT INTO Classe (libelle, idCycle, idAdmin, createdAt, updatedAt) VALUES (?, ?, 1, ?, ?)', [libelle, idCycle, now, now])
     const [rows] = await pool.query(
       `SELECT c.idClasse, c.libelle, c.idCycle, cy.libelle AS cycle,
               c.titulaire, CONCAT(p.nom, ' ', p.prenom) AS titulaireNom
@@ -222,9 +224,10 @@ router.get('/salles', async (_req, res) => {
 router.post('/salles', async (req, res) => {
   try {
     const { libelle, position, surface, idClasse, capacite } = req.body
+    const now = new Date()
     const [result] = await pool.query(
-      'INSERT INTO Salle (libelle, position, surface, idClasse, capacite, idAdmin) VALUES (?, ?, ?, ?, ?, 1)',
-      [libelle, position || '', surface || '', idClasse, capacite || null]
+      'INSERT INTO Salle (libelle, position, surface, idClasse, capacite, idAdmin, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, 1, ?, ?)',
+      [libelle, position || '', surface || '', idClasse, capacite || null, now, now]
     )
     const [rows] = await pool.query(
       'SELECT s.idSalle, s.libelle, s.position, s.surface, s.idClasse, s.actif, s.capacite, cl.libelle AS classe FROM Salle s JOIN Classe cl ON s.idClasse = cl.idClasse WHERE s.idSalle = ?',
@@ -272,9 +275,10 @@ router.delete('/salles/:id', async (req, res) => {
 router.put('/salles/:id', async (req, res) => {
   try {
     const { libelle, position, surface, idClasse, capacite } = req.body
+    const now = new Date()
     await pool.query(
-      'UPDATE Salle SET libelle = ?, position = ?, surface = ?, idClasse = ?, capacite = ? WHERE idSalle = ?',
-      [libelle, position || '', surface || '', idClasse, capacite || null, req.params.id]
+      'UPDATE Salle SET libelle = ?, position = ?, surface = ?, idClasse = ?, capacite = ?, updatedAt = ? WHERE idSalle = ?',
+      [libelle, position || '', surface || '', idClasse, capacite || null, now, req.params.id]
     )
     const [rows] = await pool.query(
       'SELECT s.idSalle, s.libelle, s.position, s.surface, s.idClasse, s.actif, s.capacite, cl.libelle AS classe FROM Salle s JOIN Classe cl ON s.idClasse = cl.idClasse WHERE s.idSalle = ?',
