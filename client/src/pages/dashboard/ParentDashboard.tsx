@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { dashboardAPI, studentAPI, messageAPI } from '../../services/api'
-import { ClipboardList, CreditCard, MessageSquare } from 'lucide-react'
+import { ClipboardList, CreditCard, MessageSquare, RefreshCw } from 'lucide-react'
 import StatCard from '../../components/StatCard'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import { formatCurrency, formatDate } from '../../utils/formatters'
@@ -31,8 +31,10 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  useEffect(() => {
+  const loadChildren = () => {
     if (!user?.idPers) { setLoading(false); setError(true); return }
+    setLoading(true)
+    setError(false)
     dashboardAPI.getParentData(user.idPers)
       .then((res) => {
         const kids = res.data.children || []
@@ -43,23 +45,36 @@ export default function ParentDashboard() {
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false))
-  }, [user])
+  }
+
+  useEffect(() => { loadChildren() }, [user])
 
   useEffect(() => {
     if (!selectedChild) return
+    setGrades([])
+    setPayments([])
+    setMessages([])
     Promise.all([
       studentAPI.getGrades(selectedChild),
       studentAPI.getPayments(selectedChild),
-      messageAPI.getAll(),
+      messageAPI.getForUser('parent', user?.idPers || 0),
     ]).then(([gradesRes, paymentsRes, messagesRes]) => {
       setGrades(gradesRes.data)
       setPayments(paymentsRes.data)
       setMessages(messagesRes.data.slice(0, 3))
     }).catch((e) => console.error('Parent data fetch error:', e))
-  }, [selectedChild])
+  }, [selectedChild, user])
 
   if (loading) return <LoadingSkeleton rows={4} />
-  if (error) return <div className="text-center py-10"><p className="text-red-500 font-medium">Erreur de chargement du tableau de bord</p><p className="text-gray-400 text-sm mt-1">Vérifie que le serveur est bien démarré</p></div>
+  if (error) return (
+    <div className="text-center py-10">
+      <p className="text-red-500 font-medium">Erreur de chargement du tableau de bord</p>
+      <p className="text-gray-400 text-sm mt-1">Impossible de charger les données. Vérifie que le serveur est bien démarré.</p>
+      <button onClick={loadChildren} className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm">
+        <RefreshCw size={16} /> Réessayer
+      </button>
+    </div>
+  )
 
   const child = children.find((c) => c.matricule === selectedChild) || children[0]
 

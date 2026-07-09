@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { examAPI } from '../../services/api'
+import { examAPI, academicAPI, studentAPI, dashboardAPI, courseAPI } from '../../services/api'
+import { useAuth } from '../../context/AuthContext'
 import { NatureEpreuve, Epreuve, Evaluation, Student, Course, Session } from '../../types'
-import { mockStudents, mockCourses, mockSessions, mockUsers } from '../../services/mockData'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import Modal from '../../components/Modal'
 import DataTable from '../../components/DataTable'
@@ -12,9 +12,15 @@ import toast from 'react-hot-toast'
 
 export default function ExamsPage() {
   const { t, i18n } = useTranslation()
+  const { user } = useAuth()
+  const isTeacher = user?.typePersonne === 2
+
   const [natures, setNatures] = useState<NatureEpreuve[]>([])
   const [epreuves, setEpreuves] = useState<Epreuve[]>([])
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
+  const [students, setStudents] = useState<Student[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
+  const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [epreuveModal, setEpreuveModal] = useState(false)
   const [gradeModal, setGradeModal] = useState(false)
@@ -25,16 +31,41 @@ export default function ExamsPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([examAPI.getNatures(), examAPI.getEpreuves(), examAPI.getEvaluations()])
-      .then(([n, e, ev]) => { setNatures(n.data); setEpreuves(e.data); setEvaluations(ev.data); setLoading(false) })
+    Promise.all([
+      examAPI.getNatures(),
+      examAPI.getEpreuves(),
+      examAPI.getEvaluations(),
+      academicAPI.getSessions(),
+      ...(isTeacher
+        ? [dashboardAPI.getTeacherData(user!.idPers).then(r => {
+            const d = r.data
+            setCourses(d.cours || [])
+            const classIds = [...new Set((d.cours || []).map((c: any) => c.idClasse).filter(Boolean))]
+            return Promise.all(classIds.map((id: number) => studentAPI.getByClass(id)))
+              .then(results => {
+                const all = results.flatMap(r => r.data)
+                const seen = new Set()
+                setStudents(all.filter((s: Student) => { const k = s.matricule; if (seen.has(k)) return false; seen.add(k); return true }))
+              })
+          })]
+        : [courseAPI.getAll().then(r => setCourses(r.data)),
+           studentAPI.getAll().then(r => setStudents(r.data))])
+    ]).then(([n, e, ev, s]) => {
+      setNatures(n.data)
+      setEpreuves(e.data)
+      setEvaluations(ev.data)
+      setSessions(s.data)
+      setLoading(false)
+    })
   }
-  useEffect(() => { load() }, [])
+
+  useEffect(() => { load() }, [user])
 
   if (loading) return <LoadingSkeleton rows={6} />
 
   const gradeColumns = [
     { key: 'matricule', label: t('grade.student'), render: (g: Evaluation) => {
-      const s = mockStudents.find((st) => st.matricule === g.matricule)
+      const s = students.find((st) => st.matricule === g.matricule)
       return s ? `${s.nom} ${s.prenom}` : `#${g.matricule}`
     }},
     { key: 'matiere', label: t('course.libelle') },
@@ -43,14 +74,14 @@ export default function ExamsPage() {
   ]
 
   const bulkInit = () => {
-    setBulkGrades(mockStudents.filter((s) => s.actif).map((s) => ({ matricule: s.matricule, note: 0 })))
+    setBulkGrades(students.filter((s) => s.actif).map((s) => ({ matricule: s.matricule as number, note: 0 })))
     setBulkModal(true)
   }
 
   const handleBulkSave = async () => {
     const data = bulkGrades.map((bg) => ({
       ...bg, idCours: gradeForm.idCours, idSession: gradeForm.idSession, idEpreuve: gradeForm.idEpreuve,
-      matiere: mockCourses.find((c) => c.idCours === gradeForm.idCours)?.libelle || '',
+      matiere: courses.find((c) => c.idCours === gradeForm.idCours)?.libelle || '',
       appreciation: getAppreciation(bg.note),
     }))
     await examAPI.bulkCreateEvaluations(data)
@@ -114,8 +145,8 @@ export default function ExamsPage() {
 
       <Modal open={gradeModal} onClose={() => setGradeModal(false)} title={t('grade.title')}>
         <form onSubmit={async (e) => { e.preventDefault(); await examAPI.createEvaluation(gradeForm); toast.success(t('toast.saved')); setGradeModal(false); setGradeForm({ note: 0, matricule: 0, idCours: 0, idSession: 1, idEpreuve: 1, matiere: '' }); load() }} className="space-y-4">
-          <div><label className="block text-sm font-medium mb-1">{t('grade.student')}</label><select value={gradeForm.matricule} onChange={(e) => setGradeForm({ ...gradeForm, matricule: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">{mockStudents.filter((s) => s.actif).map((s) => <option key={s.matricule} value={s.matricule}>{s.nom} {s.prenom}</option>)}</select></div>
-          <div><label className="block text-sm font-medium mb-1">{t('course.libelle')}</label><select value={gradeForm.idCours} onChange={(e) => setGradeForm({ ...gradeForm, idCours: parseInt(e.target.value), matiere: mockCourses.find((c) => c.idCours === parseInt(e.target.value))?.libelle || '' })} required className="w-full px-3 py-2 border rounded-lg text-sm">{mockCourses.map((c) => <option key={c.idCours} value={c.idCours}>{c.libelle}</option>)}</select></div>
+          <div><label className="block text-sm font-medium mb-1">{t('grade.student')}</label><select value={gradeForm.matricule} onChange={(e) => setGradeForm({ ...gradeForm, matricule: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">{students.filter((s) => s.actif).map((s) => <option key={s.matricule} value={s.matricule as number}>{s.nom} {s.prenom}</option>)}</select></div>
+          <div><label className="block text-sm font-medium mb-1">{t('course.libelle')}</label><select value={gradeForm.idCours} onChange={(e) => setGradeForm({ ...gradeForm, idCours: parseInt(e.target.value), matiere: courses.find((c) => c.idCours === parseInt(e.target.value))?.libelle || '' })} required className="w-full px-3 py-2 border rounded-lg text-sm">{courses.map((c) => <option key={c.idCours} value={c.idCours}>{c.libelle}</option>)}</select></div>
           <div><label className="block text-sm font-medium mb-1">{t('grade.note')}</label><input type="number" min={0} max={20} step={0.5} value={gradeForm.note} onChange={(e) => setGradeForm({ ...gradeForm, note: parseFloat(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
           <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium">{t('common.save')}</button>
         </form>
@@ -124,15 +155,15 @@ export default function ExamsPage() {
       <Modal open={bulkModal} onClose={() => setBulkModal(false)} title={t('grade.bulk')} size="xl">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium mb-1">{t('course.libelle')}</label><select value={gradeForm.idCours} onChange={(e) => setGradeForm({ ...gradeForm, idCours: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">{mockCourses.map((c) => <option key={c.idCours} value={c.idCours}>{c.libelle}</option>)}</select></div>
-            <div><label className="block text-sm font-medium mb-1">{t('academic.session')}</label><select value={gradeForm.idSession} onChange={(e) => setGradeForm({ ...gradeForm, idSession: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">{mockSessions.map((s) => <option key={s.idSession} value={s.idSession}>{s.libelle}</option>)}</select></div>
+            <div><label className="block text-sm font-medium mb-1">{t('course.libelle')}</label><select value={gradeForm.idCours} onChange={(e) => setGradeForm({ ...gradeForm, idCours: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">{courses.map((c) => <option key={c.idCours} value={c.idCours}>{c.libelle}</option>)}</select></div>
+            <div><label className="block text-sm font-medium mb-1">{t('academic.session')}</label><select value={gradeForm.idSession} onChange={(e) => setGradeForm({ ...gradeForm, idSession: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">{sessions.map((s) => <option key={s.idSession} value={s.idSession}>{s.libelle}</option>)}</select></div>
           </div>
           <div className="max-h-96 overflow-y-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b"><th className="px-3 py-2 text-left">{t('grade.student')}</th><th className="px-3 py-2 text-left">{t('grade.note')}</th></tr></thead>
               <tbody>
                 {bulkGrades.map((bg, idx) => {
-                  const s = mockStudents.find((st) => st.matricule === bg.matricule)
+                  const s = students.find((st) => st.matricule === bg.matricule)
                   return (
                     <tr key={bg.matricule} className="border-b">
                       <td className="px-3 py-2">{s?.nom} {s?.prenom}</td>

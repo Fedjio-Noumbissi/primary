@@ -15,24 +15,29 @@ router.get('/', authenticate, async (req, res) => {
        LEFT JOIN personnes p ON p.id_pers = e.id_pers
        LEFT JOIN Classe cl ON cl.titulaire = e.id_enseignant AND cl.isDelete = 0`
     )
-    const mapped = []
-    for (const r of rows) {
-      const [cours] = await pool.query(
-        'SELECT * FROM Cours WHERE idEnseignant = ? AND isDelete = 0',
-        [r.idEnseignant]
-      )
-      mapped.push({
-        idEnseignant: r.idEnseignant,
-        idPers: r.idPers,
-        nom: r.nom || '',
-        prenom: r.prenom || '',
-        mobile: r.mobile || '',
-        cours,
-        actif: !!r.actif,
-        idClasse: r.idClasse || null,
-        classeLibelle: r.classeLibelle || null,
-      })
+    const ids = rows.map((r) => r.idEnseignant)
+    const [allCours] = ids.length > 0
+      ? await pool.query(
+          'SELECT * FROM Cours WHERE idEnseignant IN (?) AND isDelete = 0',
+          [ids]
+        )
+      : [[], []]
+    const coursByTeacher = {}
+    for (const c of allCours) {
+      if (!coursByTeacher[c.idEnseignant]) coursByTeacher[c.idEnseignant] = []
+      coursByTeacher[c.idEnseignant].push(c)
     }
+    const mapped = rows.map((r) => ({
+      idEnseignant: r.idEnseignant,
+      idPers: r.idPers,
+      nom: r.nom || '',
+      prenom: r.prenom || '',
+      mobile: r.mobile || '',
+      cours: coursByTeacher[r.idEnseignant] || [],
+      actif: !!r.actif,
+      idClasse: r.idClasse || null,
+      classeLibelle: r.classeLibelle || null,
+    }))
     res.json(mapped)
   } catch (err) {
     console.error(err)

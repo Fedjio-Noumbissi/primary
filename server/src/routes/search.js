@@ -29,6 +29,7 @@ const PAGES = [
   { label: 'Notes', labelEn: 'Grades', path: '/parent/grades', icon: 'ClipboardList', roles: [3] },
   { label: 'Paiements', labelEn: 'Payments', path: '/parent/payments', icon: 'CreditCard', roles: [3] },
   { label: 'Messages', labelEn: 'Messages', path: '/parent/messages', icon: 'MessageSquare', roles: [3] },
+  { label: 'Bulletin', labelEn: 'Report Card', path: '/parent/reports', icon: 'FileText', roles: [3] },
 ]
 
 router.get('/', authenticate, async (req, res) => {

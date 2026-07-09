@@ -4,7 +4,8 @@ import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { EventClickArg, DateSelectArg, EventDropArg, EventResizeDoneArg } from '@fullcalendar/core'
-import { courseAPI, teacherAPI, classAPI } from '../../services/api'
+import { courseAPI, teacherAPI, classAPI, dashboardAPI } from '../../services/api'
+import { useAuth } from '../../context/AuthContext'
 import { Course, EmploiDuTemps, Classe, Teacher, Salle, Cycle } from '../../types'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import Modal from '../../components/Modal'
@@ -62,10 +63,13 @@ type ViewMode = 'classe' | 'enseignant' | 'salle'
 
 export default function CoursesPage() {
   const { t } = useTranslation()
+  const { user } = useAuth()
+  const isTeacher = user?.typePersonne === 2
   const calendarRef = useRef<FullCalendar>(null)
   const printRef = useRef<HTMLDivElement>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [teachers, setTeachers] = useState<Teacher[]>([])
+  const [teacherId, setTeacherId] = useState<number>(0)
   const [salles, setSalles] = useState<Salle[]>([])
   const [cycles, setCycles] = useState<Cycle[]>([])
   const [classes, setClasses] = useState<Classe[]>([])
@@ -95,22 +99,34 @@ export default function CoursesPage() {
   const load = useCallback(() => {
     setLoading(true)
     Promise.all([
-      courseAPI.getAll(),
+      isTeacher ? dashboardAPI.getTeacherData(user!.idPers).then(r => {
+        setCourses(r.data.cours || [])
+        return r.data.cours || []
+      }) : courseAPI.getAll().then(r => { setCourses(r.data); return r.data }),
       courseAPI.getTimetable(),
-      teacherAPI.getAll(),
+      teacherAPI.getAll().then(r => {
+        setTeachers(r.data)
+        if (isTeacher) {
+          const tch = r.data.find((t: Teacher) => t.idPers === user?.idPers)
+          if (tch) setTeacherId(tch.idEnseignant)
+        }
+        return r.data
+      }),
       classAPI.getSalles(),
       classAPI.getCycles(),
       classAPI.getClasses(),
-    ]).then(([c, t, te, s, cy, cl]) => {
-      setCourses(c.data)
+    ]).then(([, t]) => {
       setTimetable(t.data)
-      setTeachers(te.data)
-      setSalles(s.data)
-      setCycles(cy.data)
-      setClasses(cl.data)
       setLoading(false)
     })
-  }, [])
+  }, [user])
+
+  useEffect(() => {
+    if (isTeacher && teacherId) {
+      setViewMode('enseignant')
+      setSelectedFilter(teacherId)
+    }
+  }, [teacherId, isTeacher])
 
   useEffect(() => { load() }, [load])
 
@@ -365,9 +381,11 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
           <button onClick={handlePrint} className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition">
             <FileDown size={16} /> PDF
           </button>
-          <button onClick={() => { setCourseForm({ libelle: '', coefficient: 1, idClasse: classes[0]?.idClasse || 0 }); setCourseModal(true) }} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
-            <Plus size={16} /> {t('course.add')}
-          </button>
+          {!isTeacher && (
+            <button onClick={() => { setCourseForm({ libelle: '', coefficient: 1, idClasse: classes[0]?.idClasse || 0 }); setCourseModal(true) }} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
+              <Plus size={16} /> {t('course.add')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -385,9 +403,11 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
                 </span>
                 <div className="flex items-center gap-3">
                   <span className="text-gray-400">Coeff {c.coefficient}</span>
-                  <button onClick={() => handleDeleteCourse(c.idCours)} className="text-gray-400 hover:text-red-500 transition" title="Supprimer">
-                    <Trash2 size={14} />
-                  </button>
+                  {!isTeacher && (
+                    <button onClick={() => handleDeleteCourse(c.idCours)} className="text-gray-400 hover:text-red-500 transition" title="Supprimer">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -400,30 +420,35 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h3 className="font-semibold">{t('timetable.title')}</h3>
           <div className="flex items-center gap-3">
-            {/* View mode toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-0.5 text-xs font-medium">
-              {(['classe', 'enseignant', 'salle'] as ViewMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => { setViewMode(mode); setSelectedFilter(0) }}
-                  className={`px-3 py-1.5 rounded-md transition ${
-                    viewMode === mode ? 'bg-white shadow text-cameroon-green' : 'text-gray-500 hover:text-gray-700'
-                  }`}
+            {isTeacher ? (
+              <span className="text-sm text-gray-500">Mon emploi du temps</span>
+            ) : (
+              <>
+                <div className="flex bg-gray-100 rounded-lg p-0.5 text-xs font-medium">
+                  {(['classe', 'enseignant', 'salle'] as ViewMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => { setViewMode(mode); setSelectedFilter(0) }}
+                      className={`px-3 py-1.5 rounded-md transition ${
+                        viewMode === mode ? 'bg-white shadow text-cameroon-green' : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {mode === 'classe' ? 'Classe' : mode === 'enseignant' ? 'Enseignant' : 'Salle'}
+                    </button>
+                  ))}
+                </div>
+                <select
+                  value={selectedFilter}
+                  onChange={(e) => setSelectedFilter(parseInt(e.target.value))}
+                  className="px-3 py-1.5 border rounded-lg text-sm"
                 >
-                  {mode === 'classe' ? 'Classe' : mode === 'enseignant' ? 'Enseignant' : 'Salle'}
-                </button>
-              ))}
-            </div>
-            <select
-              value={selectedFilter}
-              onChange={(e) => setSelectedFilter(parseInt(e.target.value))}
-              className="px-3 py-1.5 border rounded-lg text-sm"
-            >
-              <option value={0}>{t('common.all')}</option>
-              {filterOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+                  <option value={0}>{t('common.all')}</option>
+                  {filterOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
         </div>
         <div className="timetable-calendar">
@@ -441,15 +466,15 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
             weekends={false}
             height="auto"
             events={events}
-            selectable
-            selectMirror
-            select={handleDateSelect}
+            selectable={!isTeacher}
+            selectMirror={!isTeacher}
+            select={isTeacher ? undefined : handleDateSelect}
             eventClick={handleEventClick}
-            eventDrop={handleEventDrop}
-            eventResize={handleEventResize}
-            editable
-            eventDurationEditable
-            eventStartEditable
+            eventDrop={isTeacher ? undefined : handleEventDrop}
+            eventResize={isTeacher ? undefined : handleEventResize}
+            editable={!isTeacher}
+            eventDurationEditable={!isTeacher}
+            eventStartEditable={!isTeacher}
             dayHeaderFormat={{ weekday: 'long' }}
             slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
           />
@@ -489,56 +514,66 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
       </Modal>
 
       {/* Slot modal */}
-      <Modal open={slotModal} onClose={() => { setSlotModal(false); setSlotInfo(null) }} title={slotInfo?.idTemps ? t('timetable.edit') : t('timetable.add')}>
+      <Modal open={slotModal} onClose={() => { setSlotModal(false); setSlotInfo(null) }} title={isTeacher ? t('timetable.details') : (slotInfo?.idTemps ? t('timetable.edit') : t('timetable.add'))}>
         <div className="space-y-4">
           <p className="text-sm text-gray-500">
             {slotInfo?.jour} &middot; {slotInfo?.heure}
           </p>
-          <div>
-            <label className="block text-sm font-medium mb-1">Cycle</label>
-            <select value={slotForm.idCycle} onChange={(e) => setSlotForm({ ...slotForm, idCycle: parseInt(e.target.value), idClasse: 0 })} className="w-full px-3 py-2 border rounded-lg text-sm">
-              <option value={0}>--</option>
-              {cycles.map((cy) => <option key={cy.idCycle} value={cy.idCycle}>{cy.libelle}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Classe</label>
-            <select value={slotForm.idClasse} onChange={(e) => setSlotForm({ ...slotForm, idClasse: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">
-              <option value={0}>--</option>
-              {filteredClassesByCycle.map((cl) => <option key={cl.idClasse} value={cl.idClasse}>{cl.libelle}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('timetable.course')}</label>
-            <select value={slotForm.idCours} onChange={(e) => setSlotForm({ ...slotForm, idCours: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">
-              <option value={0}>--</option>
-              {filteredCourses.map((c) => <option key={c.idCours} value={c.idCours}>{c.libelle}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('teacher.title')}</label>
-            <select value={slotForm.idEnseignant} onChange={(e) => setSlotForm({ ...slotForm, idEnseignant: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">
-              <option value={0}>--</option>
-              {teachers.filter((t) => t.actif).map((t) => <option key={t.idEnseignant} value={t.idEnseignant}>{t.nom} {t.prenom}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('classroom.title')}</label>
-            <select value={slotForm.idSalle} onChange={(e) => setSlotForm({ ...slotForm, idSalle: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">
-              <option value={0}>--</option>
-              {salles.filter((s) => s.actif).map((s) => <option key={s.idSalle} value={s.idSalle}>{s.libelle}</option>)}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            {slotInfo?.idTemps && (
-              <button onClick={handleDeleteEntry} className="flex-1 py-2 border border-red-500 text-red-500 rounded-lg text-sm font-medium hover:bg-red-50 transition">
-                {t('common.delete')}
-              </button>
-            )}
-            <button onClick={handleSlotSave} className="flex-1 py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium hover:bg-cameroon-green-light transition">
-              {t('common.save')}
-            </button>
-          </div>
+          {isTeacher ? (
+            <div className="space-y-3">
+              <div><span className="text-xs text-gray-400">Cours : </span><span className="text-sm font-medium">{courses.find(c => c.idCours === slotForm.idCours)?.libelle || '-'}</span></div>
+              <div><span className="text-xs text-gray-400">Classe : </span><span className="text-sm font-medium">{classes.find(c => c.idClasse === slotForm.idClasse)?.libelle || '-'}</span></div>
+              <div><span className="text-xs text-gray-400">Salle : </span><span className="text-sm font-medium">{salles.find(s => s.idSalle === slotForm.idSalle)?.libelle || '-'}</span></div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">Cycle</label>
+                <select value={slotForm.idCycle} onChange={(e) => setSlotForm({ ...slotForm, idCycle: parseInt(e.target.value), idClasse: 0 })} className="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value={0}>--</option>
+                  {cycles.map((cy) => <option key={cy.idCycle} value={cy.idCycle}>{cy.libelle}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Classe</label>
+                <select value={slotForm.idClasse} onChange={(e) => setSlotForm({ ...slotForm, idClasse: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value={0}>--</option>
+                  {filteredClassesByCycle.map((cl) => <option key={cl.idClasse} value={cl.idClasse}>{cl.libelle}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('timetable.course')}</label>
+                <select value={slotForm.idCours} onChange={(e) => setSlotForm({ ...slotForm, idCours: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value={0}>--</option>
+                  {filteredCourses.map((c) => <option key={c.idCours} value={c.idCours}>{c.libelle}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('teacher.title')}</label>
+                <select value={slotForm.idEnseignant} onChange={(e) => setSlotForm({ ...slotForm, idEnseignant: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value={0}>--</option>
+                  {teachers.filter((t) => t.actif).map((t) => <option key={t.idEnseignant} value={t.idEnseignant}>{t.nom} {t.prenom}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('classroom.title')}</label>
+                <select value={slotForm.idSalle} onChange={(e) => setSlotForm({ ...slotForm, idSalle: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value={0}>--</option>
+                  {salles.filter((s) => s.actif).map((s) => <option key={s.idSalle} value={s.idSalle}>{s.libelle}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                {slotInfo?.idTemps && (
+                  <button onClick={handleDeleteEntry} className="flex-1 py-2 border border-red-500 text-red-500 rounded-lg text-sm font-medium hover:bg-red-50 transition">
+                    {t('common.delete')}
+                  </button>
+                )}
+                <button onClick={handleSlotSave} className="flex-1 py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium hover:bg-cameroon-green-light transition">
+                  {t('common.save')}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
 

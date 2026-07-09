@@ -45,6 +45,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     { to: '/parent/dashboard', icon: LayoutDashboard, label: 'nav.dashboard' },
     { to: '/parent/grades', icon: ClipboardList, label: 'nav.exams' },
     { to: '/parent/payments', icon: CreditCard, label: 'nav.payments' },
+    { to: '/parent/reports', icon: FileText, label: 'nav.reports' },
     { to: '/parent/messages', icon: MessageSquare, label: 'nav.messages' },
   ]
 

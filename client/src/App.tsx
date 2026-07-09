@@ -10,6 +10,7 @@ import Login from './pages/auth/Login'
 import AdminDashboard from './pages/dashboard/AdminDashboard'
 import TeacherDashboard from './pages/dashboard/TeacherDashboard'
 import ParentDashboard from './pages/dashboard/ParentDashboard'
+import ParentBulletin from './pages/dashboard/ParentBulletin'
 import StudentList from './pages/students/StudentList'
 import StudentForm from './pages/students/StudentForm'
 import StudentProfile from './pages/students/StudentProfile'
@@ -106,6 +107,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<ParentDashboard />} />
         <Route path="grades" element={<ParentDashboard />} />
         <Route path="payments" element={<ParentDashboard />} />
+        <Route path="reports" element={<ParentBulletin />} />
         <Route path="messages" element={<MessagePage />} />
       </Route>
 

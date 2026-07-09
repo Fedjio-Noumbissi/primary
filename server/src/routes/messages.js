@@ -3,9 +3,17 @@ import pool from '../db.js'
 
 const router = Router()
 
-router.get('/messages', async (_req, res) => {
+router.get('/messages', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM Messages ORDER BY created_at DESC')
+    const { role, idPers } = req.query
+    let query = 'SELECT * FROM Messages'
+    const params = []
+    if (role && idPers) {
+      query += ' WHERE receiverRole = ? AND receiverId = ?'
+      params.push(role, parseInt(idPers))
+    }
+    query += ' ORDER BY created_at DESC'
+    const [rows] = await pool.query(query, params)
     res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }
 })

@@ -148,6 +148,7 @@
   "timetable.add": "Add Session",
   "timetable.edit": "Edit Session",
   "timetable.selectCourse": "Please select a subject",
+  "timetable.details": "Session Details",
   "classroom.title": "Classroom",
 
   "exam.title": "Exams",
@@ -232,6 +233,9 @@
   "discipline.points": "Points",
   "discipline.add": "Add Event",
   "discipline.student": "Student",
+  "discipline.comment": "Comment",
+  "discipline.date": "Date",
+  "discipline.selectStudent": "Please select a student",
 
   "settings.title": "Settings",
   "settings.schoolName": "School Name",

@@ -207,16 +207,14 @@ router.get('/classes/:id/pdf', async (req, res) => {
 router.get('/salles', async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT s.idSalle, s.libelle, s.position, s.surface, s.idClasse, s.actif, s.capacite, cl.libelle AS classe FROM Salle s JOIN Classe cl ON s.idClasse = cl.idClasse'
+      `SELECT s.idSalle, s.libelle, s.position, s.surface, s.idClasse, s.actif, s.capacite,
+              cl.libelle AS classe, COUNT(f.idSalle) AS occupancy
+       FROM Salle s
+       JOIN Classe cl ON s.idClasse = cl.idClasse
+       LEFT JOIN Frequente f ON f.idSalle = s.idSalle
+       GROUP BY s.idSalle`
     )
-    const withOccupancy = await Promise.all(rows.map(async (s) => {
-      const [freq] = await pool.query(
-        'SELECT COUNT(*) AS count FROM Frequente WHERE idSalle = ?',
-        [s.idSalle]
-      )
-      return { ...s, occupancy: freq[0].count }
-    }))
-    res.json(withOccupancy)
+    res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

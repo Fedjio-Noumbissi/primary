@@ -10,6 +10,12 @@ const router = Router()
 
 router.get('/', authenticate, async (req, res) => {
   try {
+    let whereClause = 'WHERE e.actif = 1'
+    const params = []
+    if (req.query.idClasse) {
+      whereClause += ' AND s.idClasse = ?'
+      params.push(Number(req.query.idClasse))
+    }
     const [rows] = await pool.query(`
       SELECT e.*, cl.libelle AS classe, s.libelle AS salle, cy.libelle AS cycle,
         sc.idScolarite, sc.inscription, sc.pension, sc.nbreTranche
@@ -22,8 +28,8 @@ router.get('/', authenticate, async (req, res) => {
       LEFT JOIN Classe cl ON cl.idClasse = s.idClasse
       LEFT JOIN Cycle cy ON cy.idCycle = e.idCycle
       LEFT JOIN Scolarite sc ON sc.idScolarite = f.idScolarite
-      WHERE e.actif = 1
-    `)
+      ${whereClause}
+    `, params)
     const mapped = rows.map((r) => ({
       matricule: parseInt(r.matricule) || r.matricule,
       nom: r.nom,

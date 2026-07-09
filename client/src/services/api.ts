@@ -128,6 +128,7 @@ export const libraryAPI = {
 
 export const messageAPI = {
   getAll: () => api.get<Message[]>('/messages'),
+  getForUser: (role: string, idPers: number) => api.get<Message[]>('/messages', { params: { role, idPers } }),
   send: (data: Partial<Message>) => api.post<Message>('/messages', data),
   broadcast: (data: { idExp_Pers: number; objet: string; information: string; target: 'parents' | 'teachers' | 'all' }) =>
     api.post('/messages/broadcast', data),
@@ -148,6 +149,7 @@ export const parentAPI = {
 
 export const studentAPI = {
   getAll: () => api.get<Student[]>('/students'),
+  getByClass: (idClasse: number) => api.get<Student[]>('/students', { params: { idClasse } }),
   getById: (id: number) => api.get<Student>(`/students/${id}`),
   create: (data: Partial<Student>) => api.post<Student>('/students', data),
   update: (id: number, data: Partial<Student>) => api.put<Student>(`/students/${id}`, data),
@@ -190,7 +192,7 @@ export const uploadAPI = {
 
 export const disciplineAPI = {
   getAll: () => api.get('/discipline'),
-  create: (data: { libelle: string; points: number; matricule: number; idAca?: number; commentaire?: string }) =>
+  create: (data: { libelle: string; points: number; matricule: number; idAca?: number; commentaire?: string; idPers?: number; event_date?: string }) =>
     api.post('/discipline', data),
 }
 

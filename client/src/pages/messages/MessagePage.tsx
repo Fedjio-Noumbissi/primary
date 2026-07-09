@@ -33,8 +33,16 @@ export default function MessagePage() {
 
   const load = () => {
     setLoading(true)
+    let msgPromise
+    if (user?.typePersonne === 2) {
+      msgPromise = messageAPI.getForUser('teacher', user.idPers)
+    } else if (user?.typePersonne === 3) {
+      msgPromise = messageAPI.getForUser('parent', user.idPers)
+    } else {
+      msgPromise = messageAPI.getAll()
+    }
     Promise.all([
-      messageAPI.getAll(),
+      msgPromise,
       parentAPI.getAll(),
       teacherAPI.getAll(),
     ]).then(([msgRes, parentRes, teacherRes]) => {
@@ -42,9 +50,9 @@ export default function MessagePage() {
       setParents(parentRes.data)
       setTeachers(teacherRes.data)
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [user])
 
   if (loading) return <LoadingSkeleton rows={5} />
 
@@ -108,13 +116,15 @@ export default function MessagePage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">{t('message.title')}</h1>
-        <button onClick={() => setComposeOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm">
-          <Plus size={16} /> {t('message.compose')}
-        </button>
+        {user?.typePersonne === 1 && (
+          <button onClick={() => setComposeOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm">
+            <Plus size={16} /> {t('message.compose')}
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border p-5">
-        <DataTable columns={columns} data={messages} />
+        <DataTable columns={columns} data={messages} rowId={(r) => r.idMessages} />
       </div>
 
       <Modal open={composeOpen} onClose={() => setComposeOpen(false)} title={t('message.compose')}>

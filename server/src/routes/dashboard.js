@@ -46,7 +46,7 @@ router.get('/parent/:idPers', async (req, res) => {
   try {
     const { idPers } = req.params
     const [children] = await pool.query(
-      'SELECT e.* FROM Parents p JOIN eleves e ON p.matricule = e.matricule WHERE p.idPers = ?',
+      'SELECT e.* FROM Parents p JOIN eleves e ON CAST(p.matricule AS CHAR) = CAST(e.matricule AS CHAR) WHERE p.idPers = ?',
       [idPers]
     )
     res.json({ children })

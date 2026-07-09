@@ -7,7 +7,7 @@ router.get('/reports/:matricule/:idTrimes', async (req, res) => {
   try {
     const { matricule, idTrimes } = req.params
     const [rows] = await pool.query(
-      'SELECT * FROM Evaluation WHERE matricule = ? AND idSession IN (SELECT idSession FROM Session WHERE idTrimestre = ?)',
+      'SELECT e.*, c.libelle AS matiere FROM Evaluation e JOIN Cours c ON e.idCours = c.idCours WHERE e.matricule = ? AND e.idSession IN (SELECT idSession FROM Session WHERE idTrimestre = ?)',
       [matricule, idTrimes]
     )
     const [student] = await pool.query('SELECT * FROM eleves WHERE matricule = ?', [matricule])

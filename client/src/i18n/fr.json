@@ -148,6 +148,7 @@
   "timetable.add": "Ajouter une Séance",
   "timetable.edit": "Modifier la Séance",
   "timetable.selectCourse": "Veuillez sélectionner une matière",
+  "timetable.details": "Détails du créneau",
   "classroom.title": "Salle de Classe",
 
   "exam.title": "Examens",
@@ -232,6 +233,9 @@
   "discipline.points": "Points",
   "discipline.add": "Ajouter un Événement",
   "discipline.student": "Élève",
+  "discipline.comment": "Commentaire",
+  "discipline.date": "Date",
+  "discipline.selectStudent": "Veuillez sélectionner un élève",
 
   "settings.title": "Paramètres",
   "settings.schoolName": "Nom de l'École",
