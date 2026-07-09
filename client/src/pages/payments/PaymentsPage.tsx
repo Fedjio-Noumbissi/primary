@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { paymentAPI, classAPI } from '../../services/api'
-import { Scolarite, Tranche, Mode, Paiement, Classe, Cycle } from '../../types'
+import { paymentAPI, classAPI, studentAPI, academicAPI } from '../../services/api'
+import { Scolarite, Tranche, Mode, Paiement, Classe, Student, AnneeAcademique } from '../../types'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import DataTable from '../../components/DataTable'
 import Modal from '../../components/Modal'
-import { Plus, Printer, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Printer, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/formatters'
 import toast from 'react-hot-toast'
 
@@ -17,36 +17,28 @@ export default function PaymentsPage() {
   const [modes, setModes] = useState<Mode[]>([])
   const [paiements, setPaiements] = useState<Paiement[]>([])
   const [classes, setClasses] = useState<Classe[]>([])
-  const [cycles, setCycles] = useState<Cycle[]>([])
   const [loading, setLoading] = useState(true)
   const [students, setStudents] = useState<Student[]>([])
   const [activeAnnee, setActiveAnnee] = useState<AnneeAcademique | null>(null)
   const [paieModal, setPaieModal] = useState(false)
   const [paieForm, setPaieForm] = useState({ matricule: 0, idAca: 0, montant: 0, idMode: 1, datePaie: '', idPers: 0 })
   const [studentSearch, setStudentSearch] = useState('')
-  const [selectedStudentLabel, setSelectedStudentLabel] = useState('')
+  const [filterClasse, setFilterClasse] = useState('')
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [checkedTrancheIds, setCheckedTrancheIds] = useState<Set<number>>(new Set())
+  const [paidTrancheIds, setPaidTrancheIds] = useState<Set<number>>(new Set())
 
+  const [searchHistory, setSearchHistory] = useState('')
   const [tarifModal, setTarifModal] = useState(false)
   const [editingClasse, setEditingClasse] = useState<Classe | null>(null)
   const [editingScolariteId, setEditingScolariteId] = useState<number | null>(null)
   const [tarifForm, setTarifForm] = useState({ inscription: 0, pension: 0, nbreTranche: 3 })
-
-  const [tuitionModal, setTuitionModal] = useState(false)
-  const [tuitionForm, setTuitionForm] = useState({
-    inscription: 0,
-    pension: 0,
-    idCycle: 0,
-    nbreTranche: 1,
-  })
-  const [trancheDates, setTrancheDates] = useState<string[]>([''])
-  const [editingTuition, setEditingTuition] = useState<Scolarite | null>(null)
+  const [tarifTrancheDates, setTarifTrancheDates] = useState<string[]>([])
+  const [expandedClasses, setExpandedClasses] = useState<Set<number>>(new Set())
 
   const [modeModal, setModeModal] = useState(false)
   const [editingMode, setEditingMode] = useState<Mode | null>(null)
   const [modeLibelle, setModeLibelle] = useState('')
-
-  const [editingTranche, setEditingTranche] = useState<Tranche | null>(null)
-  const [trancheForm, setTrancheForm] = useState({ libelle: '', montant: 0, date_limite: '' })
 
   const load = () => {
     setLoading(true)
@@ -56,75 +48,19 @@ export default function PaymentsPage() {
       paymentAPI.getModes(),
       paymentAPI.getPaiements(),
       classAPI.getClasses(),
-      classAPI.getCycles(),
-    ]).then(([sc, tr, mo, pa, cl, cy]) => {
+      academicAPI.getAnnees(),
+    ]).then(([sc, tr, mo, pa, cl, an]) => {
       setScolarites(sc.data)
       setTranches(tr.data)
       setModes(mo.data)
       setPaiements(pa.data)
       setClasses(cl.data)
-      setCycles(cy.data)
+      const active = an.data.find((a: AnneeAcademique) => a.actif)
+      setActiveAnnee(active || null)
       setLoading(false)
     })
   }
   useEffect(() => { load() }, [])
-
-  const openTuitionModal = () => {
-    setEditingTuition(null)
-    setTuitionForm({ inscription: 0, pension: 0, idCycle: 0, nbreTranche: 1 })
-    setTrancheDates([''])
-    setTuitionModal(true)
-  }
-
-  const openEditTuitionModal = (s: Scolarite) => {
-    setEditingTuition(s)
-    setTuitionForm({ inscription: s.inscription, pension: s.pension, idCycle: s.idCycle, nbreTranche: s.nbreTranche })
-    setTrancheDates(Array.from({ length: s.nbreTranche }, (_, i) => ''))
-    setTuitionModal(true)
-  }
-
-  const handleNbreTrancheChange = (n: number) => {
-    setTuitionForm({ ...tuitionForm, nbreTranche: n })
-    setTrancheDates(Array.from({ length: n }, (_, i) => trancheDates[i] || ''))
-  }
-
-  const handleTuitionSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!tuitionForm.idCycle) { toast.error('Veuillez sélectionner un cycle'); return }
-    const total = tuitionForm.inscription + tuitionForm.pension
-    const montantParTranche = Math.round(total / tuitionForm.nbreTranche)
-    const tranchesData = trancheDates.map((date, i) => ({
-      libelle: `Tranche ${i + 1}`,
-      montant: montantParTranche,
-      date_limite: date,
-    }))
-    try {
-      if (editingTuition) {
-        await paymentAPI.updateScolarite(editingTuition.idScolarite, tuitionForm)
-        toast.success(t('toast.saved'))
-      } else {
-        await paymentAPI.createScolariteWithTranches({
-          inscription: tuitionForm.inscription,
-          pension: tuitionForm.pension,
-          nbreTranche: tuitionForm.nbreTranche,
-          idCycle: tuitionForm.idCycle,
-          tranches: tranchesData,
-        })
-        toast.success(t('toast.saved'))
-      }
-      setTuitionModal(false)
-      load()
-    } catch { toast.error(t('toast.error')) }
-  }
-
-  const deleteScolarite = async (id: number) => {
-    if (!confirm('Supprimer ces frais de scolarité ?')) return
-    try {
-      await paymentAPI.deleteScolarite(id)
-      toast.success('Supprimé')
-      load()
-    } catch { toast.error(t('toast.error')) }
-  }
 
   const openModeModal = (m?: Mode) => {
     setEditingMode(m || null)
@@ -137,7 +73,7 @@ export default function PaymentsPage() {
     if (!modeLibelle.trim()) return
     try {
       if (editingMode) {
-        await paymentAPI.updateMode(editingMode.idMode, { libelle: modeLibelle, actif: 1 })
+        await paymentAPI.updateMode(editingMode.idMode, { libelle: modeLibelle, actif: true })
       } else {
         await paymentAPI.createMode({ libelle: modeLibelle })
       }
@@ -155,38 +91,8 @@ export default function PaymentsPage() {
       await paymentAPI.deleteMode(id)
       toast.success('Supprimé')
       load()
-    } catch { toast.error(t('toast.error')) }
+    } catch (err: any) { toast.error(err?.response?.data?.message || t('toast.error')) }
   }
-
-  const openTrancheModal = (t?: Tranche) => {
-    setEditingTranche(t || null)
-    setTrancheForm(t ? { libelle: t.libelle, montant: t.montant, date_limite: t.date_limite || '' } : { libelle: '', montant: 0, date_limite: '' })
-  }
-
-  const handleTrancheSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!trancheForm.libelle.trim()) return
-    try {
-      if (editingTranche) {
-        await paymentAPI.updateTranche(editingTranche.idTranche, trancheForm)
-      }
-      toast.success(t('toast.saved'))
-      setEditingTranche(null)
-      setTrancheForm({ libelle: '', montant: 0, date_limite: '' })
-      load()
-    } catch { toast.error(t('toast.error')) }
-  }
-
-  const deleteTranche = async (id: number) => {
-    if (!confirm('Supprimer cette tranche ?')) return
-    try {
-      await paymentAPI.deleteTranche(id)
-      toast.success('Supprimé')
-      load()
-    } catch { toast.error(t('toast.error')) }
-  }
-
-  if (loading) return <LoadingSkeleton rows={6} />
 
   const columns = [
     { key: 'nom', label: t('student.nom'), render: (p: Paiement) => <span className="font-medium">{p.nom} {p.prenom}</span> },
@@ -197,9 +103,14 @@ export default function PaymentsPage() {
 
   const openPaieModal = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}')
-    setPaieForm({ matricule: 0, idAca: activeAnnee?.idAnnee || 0, montant: 0, idMode: 1, datePaie: '', idPers: user.idPers || 1 })
+    const defaultMode = modes.find(m => m.actif)?.idMode || 1
+    setPaieForm({ matricule: 0, idAca: activeAnnee?.idAnnee || 1, montant: 0, idMode: defaultMode, datePaie: '', idPers: user.idPers || 1 })
     setStudentSearch('')
-    setSelectedStudentLabel('')
+    setFilterClasse('')
+    setSelectedStudent(null)
+    setCheckedTrancheIds(new Set())
+    setPaidTrancheIds(new Set())
+    studentAPI.getAll().then(res => setStudents(res.data))
     setPaieModal(true)
   }
 
@@ -211,77 +122,25 @@ export default function PaymentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t('payment.title')}</h1>
-        <div className="flex gap-2">
-          <button onClick={openTuitionModal} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition">
-            <Plus size={16} /> {t('payment.addTuition')}
-          </button>
+        <div className="flex items-center gap-2">
           <button onClick={openPaieModal} className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition">
             <Plus size={16} /> {t('payment.receive')}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl border p-5">
-          <h3 className="font-semibold mb-4">{t('payment.tuition')}</h3>
-          {scolarites.length === 0 && <p className="text-sm text-gray-400">{t('common.noData')}</p>}
-          {scolarites.map((s) => (
-            <div key={s.idScolarite} className="px-3 py-2 bg-gray-50 rounded-lg text-sm mb-2 group">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-xs text-gray-500 mb-1">{s.cycle || `Cycle #${s.idCycle}`}</p>
-                  <p className="font-medium">{t('payment.inscription')}: {formatCurrency(s.inscription)}</p>
-                  <p>{t('payment.pension')}: {formatCurrency(s.pension)}</p>
-                  <p className="text-xs text-gray-400">{s.nbreTranche} tranche(s)</p>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                  <button onClick={() => openEditTuitionModal(s)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded" title="Modifier"><Pencil size={14} /></button>
-                  <button onClick={() => deleteScolarite(s.idScolarite)} className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="Supprimer"><Trash2 size={14} /></button>
-                </div>
-              </div>
-            </div>
-          ))}
+      <div className="bg-white rounded-xl border p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">{t('payment.mode')}</h3>
+          <button onClick={() => openModeModal()} className="text-blue-600 hover:bg-blue-50 p-1 rounded" title="Ajouter"><Plus size={16} /></button>
         </div>
-
-        <div className="bg-white rounded-xl border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">{t('payment.mode')}</h3>
-            <button onClick={() => openModeModal()} className="text-blue-600 hover:bg-blue-50 p-1 rounded" title="Ajouter"><Plus size={16} /></button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {modes.filter(m => m.actif).map((m) => (
-              <span key={m.idMode} className="group inline-flex items-center gap-1 px-3 py-1.5 bg-gray-50 rounded-lg text-sm">
-                {m.libelle}
-                <button onClick={() => openModeModal(m)} className="text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition" title="Modifier"><Pencil size={12} /></button>
-                <button onClick={() => deleteMode(m.idMode)} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition" title="Supprimer"><Trash2 size={12} /></button>
-              </span>
-            ))}
-            {modes.filter(m => !m.actif).map((m) => (
-              <span key={m.idMode} className="group inline-flex items-center gap-1 px-3 py-1.5 bg-red-50 rounded-lg text-sm line-through text-gray-400">
-                {m.libelle}
-                <button onClick={() => openModeModal(m)} className="text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition" title="Réactiver"><Pencil size={12} /></button>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border p-5">
-          <h3 className="font-semibold mb-4">{t('payment.tranche')}</h3>
-          {tranches.length === 0 && <p className="text-sm text-gray-400">{t('common.noData')}</p>}
-          {tranches.map((t) => (
-            <div key={t.idTranche} className="px-3 py-2 bg-gray-50 rounded-lg text-sm mb-2 flex items-center justify-between group">
-              <div className="flex-1">
-                <span>{t.libelle}</span>
-                {t.date_limite && <span className="text-xs text-gray-400 ml-2">limite: {formatDate(t.date_limite)}</span>}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{formatCurrency(t.montant)}</span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                  <button onClick={() => openTrancheModal(t)} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="Modifier"><Pencil size={12} /></button>
-                  <button onClick={() => deleteTranche(t.idTranche)} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Supprimer"><Trash2 size={12} /></button>
-                </div>
-              </div>
-            </div>
+        <div className="flex flex-wrap gap-2">
+          {modes.filter(m => m.actif).map((m) => (
+            <span key={m.idMode} className="group inline-flex items-center gap-1 px-3 py-1.5 bg-gray-50 rounded-lg text-sm">
+              {m.libelle}
+              <button onClick={() => openModeModal(m)} className="text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition" title="Modifier"><Pencil size={12} /></button>
+              <button onClick={() => deleteMode(m.idMode)} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition" title="Supprimer"><Trash2 size={12} /></button>
+            </span>
           ))}
         </div>
       </div>
@@ -292,6 +151,7 @@ export default function PaymentsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-gray-500">
+                <th className="pb-2 font-medium w-8" />
                 <th className="pb-2 font-medium">{t('student.classe')}</th>
                 <th className="pb-2 font-medium">Cycle</th>
                 <th className="pb-2 font-medium text-right">{t('payment.inscription')}</th>
@@ -303,31 +163,64 @@ export default function PaymentsPage() {
             </thead>
             <tbody>
               {classes.filter(c => !c.isDelete).map(cl => {
-                const sc = scolarites.find(s => s.idCycle === cl.idCycle)
+                const sc = scolarites.find(s => s.idClasse === cl.idClasse)
                 const total = sc ? sc.inscription + sc.pension : 0
+                const clsTranches = tranches.filter(t => t.idScolarite === sc?.idScolarite)
+                const expanded = expandedClasses.has(cl.idClasse)
+                const toggle = () => {
+                  const next = new Set(expandedClasses)
+                  expanded ? next.delete(cl.idClasse) : next.add(cl.idClasse)
+                  setExpandedClasses(next)
+                }
                 return (
-                  <tr key={cl.idClasse} className="border-b last:border-0 hover:bg-gray-50 dark:hover:bg-slate-700/50">
-                    <td className="py-2.5 font-medium">{cl.libelle}</td>
-                    <td className="py-2.5 text-gray-500">{cl.cycle || cl.specialite || '—'}</td>
-                    <td className="py-2.5 text-right">{sc ? formatCurrency(sc.inscription) : '—'}</td>
-                    <td className="py-2.5 text-right">{sc ? formatCurrency(sc.pension) : '—'}</td>
-                    <td className="py-2.5 text-right">{sc ? sc.nbreTranche : '—'}</td>
-                    <td className="py-2.5 text-right font-semibold">{sc ? formatCurrency(total) : '—'}</td>
-                    <td className="py-2.5 text-right">
-                      <button
-                        onClick={() => {
-                          setEditingClasse(cl)
-                          setEditingScolariteId(sc?.idScolarite || null)
-                          setTarifForm({ inscription: sc?.inscription || 0, pension: sc?.pension || 0, nbreTranche: sc?.nbreTranche || 3 })
-                          setTarifModal(true)
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cameroon-green/10 text-cameroon-green rounded-lg hover:bg-cameroon-green/20 transition"
-                      >
-                        <Pencil size={14} />
-                        {t('common.edit')}
-                      </button>
-                    </td>
-                  </tr>
+                  <React.Fragment key={cl.idClasse}>
+                    <tr className="border-b hover:bg-gray-50 dark:hover:bg-slate-700/50">
+                      <td className="py-2.5">
+                        {clsTranches.length > 0 && (
+                          <button onClick={toggle} className="p-1 text-gray-400 hover:text-gray-600 transition">
+                            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          </button>
+                        )}
+                      </td>
+                      <td className="py-2.5 font-medium cursor-pointer" onClick={toggle}>{cl.libelle}</td>
+                      <td className="py-2.5 text-gray-500">{cl.cycle || cl.specialite || '—'}</td>
+                      <td className="py-2.5 text-right">{sc ? formatCurrency(sc.inscription) : '—'}</td>
+                      <td className="py-2.5 text-right">{sc ? formatCurrency(sc.pension) : '—'}</td>
+                      <td className="py-2.5 text-right">{sc ? sc.nbreTranche : '—'}</td>
+                      <td className="py-2.5 text-right font-semibold">{sc ? formatCurrency(total) : '—'}</td>
+                      <td className="py-2.5 text-right">
+                        <button
+                          onClick={() => {
+                            setEditingClasse(cl)
+                            setEditingScolariteId(sc?.idScolarite || null)
+                            setTarifForm({ inscription: sc?.inscription || 0, pension: sc?.pension || 0, nbreTranche: sc?.nbreTranche || 3 })
+                            const existing = tranches.filter(t => t.idScolarite === sc?.idScolarite)
+                            setTarifTrancheDates(existing.map(t => t.date_limite || ''))
+                            setTarifModal(true)
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cameroon-green/10 text-cameroon-green rounded-lg hover:bg-cameroon-green/20 transition"
+                        >
+                          <Pencil size={14} />
+                          {t('common.edit')}
+                        </button>
+                      </td>
+                    </tr>
+                    {expanded && clsTranches.map((tr, i) => (
+                      <tr key={tr.idTranche} className="bg-gray-50/50 text-xs text-gray-500">
+                        <td />
+                        <td className="py-1.5 pl-8" colSpan={2}>
+                          {isFr ? `Tranche ${i + 1}` : `Installment ${i + 1}`}
+                        </td>
+                        <td className="py-1.5 text-right font-medium text-gray-700" colSpan={2}>
+                          {formatCurrency(tr.montant)}
+                        </td>
+                        <td className="py-1.5 text-right" colSpan={2}>
+                          {tr.date_limite ? `${isFr ? 'limite' : 'due'}: ${formatDate(tr.date_limite)}` : '—'}
+                        </td>
+                        <td />
+                      </tr>
+                    ))}
+                  </React.Fragment>
                 )
               })}
             </tbody>
@@ -338,32 +231,89 @@ export default function PaymentsPage() {
       <Modal open={tarifModal} onClose={() => setTarifModal(false)} title={`${isFr ? 'Modifier les frais' : 'Edit tuition'} — ${editingClasse?.libelle || ''}`}>
         <form onSubmit={async (e) => {
           e.preventDefault()
+          const total = tarifForm.inscription + tarifForm.pension
+          const montantParTranche = Math.round(total / (tarifForm.nbreTranche || 1))
           try {
             if (editingScolariteId) {
-              await paymentAPI.updateScolarite(editingScolariteId, tarifForm)
+              const existing = tranches.filter(t => t.idScolarite === editingScolariteId)
+              await paymentAPI.updateScolarite(editingScolariteId, { ...tarifForm, idClasse: editingClasse?.idClasse })
+              for (let i = 0; i < Math.max(tarifForm.nbreTranche, existing.length); i++) {
+                if (i < tarifForm.nbreTranche && existing[i]) {
+                  await paymentAPI.updateTranche(existing[i].idTranche, { libelle: `Tranche ${i + 1}`, montant: montantParTranche, date_limite: tarifTrancheDates[i] || '' })
+                } else if (i < tarifForm.nbreTranche && !existing[i]) {
+                  await paymentAPI.createTranche({ libelle: `Tranche ${i + 1}`, montant: montantParTranche, date_limite: tarifTrancheDates[i] || '', idScolarite: editingScolariteId })
+                } else if (i >= tarifForm.nbreTranche && existing[i]) {
+                  await paymentAPI.deleteTranche(existing[i].idTranche)
+                }
+              }
             } else if (editingClasse) {
-              await paymentAPI.createScolarite({ ...tarifForm, idCycle: editingClasse.idCycle, description: `Plan ${editingClasse.libelle}` })
+              await paymentAPI.createScolariteWithTranches({
+                inscription: tarifForm.inscription,
+                pension: tarifForm.pension,
+                nbreTranche: tarifForm.nbreTranche,
+                idClasse: editingClasse.idClasse,
+                idCycle: editingClasse.idCycle,
+                tranches: Array.from({ length: tarifForm.nbreTranche }, (_, i) => ({
+                  libelle: `Tranche ${i + 1}`,
+                  montant: montantParTranche,
+                  date_limite: tarifTrancheDates[i] || '',
+                })),
+              })
             }
             toast.success(t('toast.saved'))
             setTarifModal(false)
             load()
           } catch { toast.error(t('toast.error')) }
         }} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('payment.inscription')}</label>
-            <input type="number" min={0} value={tarifForm.inscription} onChange={e => setTarifForm(f => ({ ...f, inscription: parseFloat(e.target.value) }))} required
-              className="w-full px-3 py-2 border rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('payment.pension')}</label>
-            <input type="number" min={0} value={tarifForm.pension} onChange={e => setTarifForm(f => ({ ...f, pension: parseFloat(e.target.value) }))} required
-              className="w-full px-3 py-2 border rounded-lg text-sm" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('payment.inscription')}</label>
+              <input type="number" min={0} value={tarifForm.inscription} onChange={e => setTarifForm(f => ({ ...f, inscription: parseFloat(e.target.value) }))} required
+                className="w-full px-3 py-2 border rounded-lg text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('payment.pension')}</label>
+              <input type="number" min={0} value={tarifForm.pension} onChange={e => setTarifForm(f => ({ ...f, pension: parseFloat(e.target.value) }))} required
+                className="w-full px-3 py-2 border rounded-lg text-sm" />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">{isFr ? 'Nombre de tranches' : 'Number of installments'}</label>
-            <input type="number" min={1} max={12} value={tarifForm.nbreTranche} onChange={e => setTarifForm(f => ({ ...f, nbreTranche: parseInt(e.target.value) }))} required
-              className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input type="number" min={1} max={12} value={tarifForm.nbreTranche} onChange={e => {
+              const n = parseInt(e.target.value)
+              setTarifForm(f => ({ ...f, nbreTranche: n }))
+              setTarifTrancheDates(prev => Array.from({ length: n }, (_, i) => prev[i] || ''))
+            }} required className="w-full px-3 py-2 border rounded-lg text-sm" />
           </div>
+
+          <div className="border-t pt-4">
+            <p className="text-sm font-medium mb-3">
+              {isFr ? 'Total' : 'Total'}: <span className="text-cameroon-green font-semibold">{formatCurrency(tarifForm.inscription + tarifForm.pension)}</span>
+              {' — '}{tarifForm.nbreTranche} {'×'} {formatCurrency(Math.round((tarifForm.inscription + tarifForm.pension) / (tarifForm.nbreTranche || 1)))}
+            </p>
+            <div className="space-y-3">
+              {Array.from({ length: tarifForm.nbreTranche }).map((_, i) => {
+                const montant = Math.round((tarifForm.inscription + tarifForm.pension) / tarifForm.nbreTranche)
+                return (
+                  <div key={i} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium w-24">{isFr ? `Tranche ${i + 1}` : `Installment ${i + 1}`}</span>
+                    <span className="text-sm font-semibold text-cameroon-green w-24">{formatCurrency(montant)}</span>
+                    <input
+                      type="date"
+                      value={tarifTrancheDates[i] || ''}
+                      onChange={(e) => {
+                        const next = [...tarifTrancheDates]
+                        next[i] = e.target.value
+                        setTarifTrancheDates(next)
+                      }}
+                      className="flex-1 px-3 py-1.5 border rounded-lg text-sm"
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
           <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium">{t('common.save')}</button>
         </form>
       </Modal>
@@ -372,7 +322,12 @@ export default function PaymentsPage() {
         <h3 className="font-semibold mb-4">{t('payment.history')}</h3>
         <DataTable
           columns={columns}
-          data={paiements}
+          data={paiements.filter(p =>
+            !searchHistory ||
+            `${p.nom} ${p.prenom} ${p.matricule} ${p.mode} ${p.montant}`.toLowerCase().includes(searchHistory.toLowerCase())
+          )}
+          search={searchHistory}
+          onSearch={setSearchHistory}
           actions={(p: Paiement) => (
             <button onClick={() => openReceipt(p.idPaie)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cameroon-green/10 text-cameroon-green rounded-lg hover:bg-cameroon-green/20 transition" title={t('payment.receipt')}>
               <Printer size={14} />
@@ -387,41 +342,113 @@ export default function PaymentsPage() {
           e.preventDefault()
           if (!paieForm.matricule) { toast.error('Veuillez sélectionner un élève'); return }
           try {
-            await paymentAPI.createPaiement(paieForm)
+            await paymentAPI.createPaiement({ ...paieForm, tranches: [...checkedTrancheIds] })
             toast.success(t('toast.saved'))
             setPaieModal(false)
             const user = JSON.parse(localStorage.getItem('user') || '{}')
-            setPaieForm({ matricule: 0, idAca: activeAnnee?.idAnnee || 0, montant: 0, idMode: 1, datePaie: '', idPers: user.idPers || 1 })
-            setSelectedStudentLabel('')
+            const defaultMode = modes.find(m => m.actif)?.idMode || 1
+            setPaieForm({ matricule: 0, idAca: activeAnnee?.idAnnee || 1, montant: 0, idMode: defaultMode, datePaie: '', idPers: user.idPers || 1 })
+            setSelectedStudent(null)
+            setCheckedTrancheIds(new Set())
+            setPaidTrancheIds(new Set())
             setStudentSearch('')
             load()
           } catch { toast.error(t('toast.error')) }
         }} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Élève</label>
-            <input type="text" placeholder="Rechercher un élève..." value={studentSearch}
-              onChange={(e) => { setStudentSearch(e.target.value); setSelectedStudentLabel(''); setPaieForm({ ...paieForm, matricule: 0 }) }}
-              className="w-full px-3 py-2 border rounded-lg text-sm" />
-            {studentSearch && !selectedStudentLabel && (
-              <div className="mt-1 max-h-40 overflow-y-auto border rounded-lg text-sm">
+            <div className="flex gap-2 mb-2">
+              <select value={filterClasse} onChange={(e) => { setFilterClasse(e.target.value); setSelectedStudent(null); setPaieForm({ ...paieForm, matricule: 0 }) }}
+                className="w-48 px-3 py-2 border rounded-lg text-sm">
+                <option value="">{isFr ? 'Toutes les classes' : 'All classes'}</option>
+                {classes.filter(c => !c.isDelete).map(c => (
+                  <option key={c.idClasse} value={c.libelle}>{c.libelle}</option>
+                ))}
+              </select>
+              <input type="text" placeholder="Rechercher un élève..." value={studentSearch}
+                onChange={(e) => { setStudentSearch(e.target.value); setSelectedStudent(null); setPaieForm({ ...paieForm, matricule: 0 }) }}
+                className="flex-1 px-3 py-2 border rounded-lg text-sm" />
+            </div>
+            {!selectedStudent && (
+              <div className="max-h-48 overflow-y-auto border rounded-lg text-sm">
                 {students
-                  .filter(s => `${s.nom} ${s.prenom} ${s.matricule}`.toLowerCase().includes(studentSearch.toLowerCase()))
-                  .slice(0, 20)
+                  .filter(s => !filterClasse || s.classe === filterClasse)
+                  .filter(s => !studentSearch || `${s.nom} ${s.prenom} ${s.matricule}`.toLowerCase().includes(studentSearch.toLowerCase()))
+                  .slice(0, 30)
                   .map(s => (
                     <button key={s.matricule} type="button"
-                      onClick={() => { setSelectedStudentLabel(`${s.nom} ${s.prenom} (${s.matricule})`); setStudentSearch(''); setPaieForm({ ...paieForm, matricule: s.matricule }) }}
+                      onClick={() => {
+                        setSelectedStudent(s); setStudentSearch(''); setFilterClasse(''); setPaieForm({ ...paieForm, matricule: s.matricule }); setCheckedTrancheIds(new Set())
+                        paymentAPI.getPaidTranches(s.matricule).then(r => setPaidTrancheIds(new Set(r.data)))
+                      }}
                       className="w-full text-left px-3 py-2 hover:bg-gray-100 border-b last:border-0">
-                      {s.nom} {s.prenom} <span className="text-gray-400">#{s.matricule}</span>
+                      <span className="font-medium">{s.nom} {s.prenom}</span>
+                      {s.classe && <span className="text-gray-400 ml-2">({s.classe})</span>}
+                      <span className="text-gray-400 ml-1">#{s.matricule}</span>
                     </button>
                   ))}
-                {students.filter(s => `${s.nom} ${s.prenom} ${s.matricule}`.toLowerCase().includes(studentSearch.toLowerCase())).length === 0 && (
-                  <p className="px-3 py-2 text-gray-400">Aucun élève trouvé</p>
+                {students.filter(s => !filterClasse || s.classe === filterClasse)
+                  .filter(s => !studentSearch || `${s.nom} ${s.prenom} ${s.matricule}`.toLowerCase().includes(studentSearch.toLowerCase()))
+                  .length === 0 && (
+                  <p className="px-3 py-2 text-gray-400">{isFr ? 'Aucun élève trouvé' : 'No student found'}</p>
+                )}
+                {students.length === 0 && !studentSearch && !filterClasse && (
+                  <p className="px-3 py-2 text-gray-400">{isFr ? 'Chargement...' : 'Loading...'}</p>
                 )}
               </div>
             )}
-            {selectedStudentLabel && (
-              <p className="mt-1 text-sm text-cameroon-green font-medium">{selectedStudentLabel}</p>
-            )}
+            {selectedStudent && (() => {
+              const matchedClasse = classes.find(c => c.libelle === selectedStudent.classe)
+              const sc = scolarites.find(s => s.idClasse === matchedClasse?.idClasse)
+              const clsTranches = tranches.filter(t => t.idScolarite === sc?.idScolarite)
+              const availableTranches = clsTranches.filter(t => !paidTrancheIds.has(t.idTranche))
+              const checkedTotal = clsTranches.filter(t => checkedTrancheIds.has(t.idTranche)).reduce((s, t) => s + t.montant, 0)
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-2 bg-cameroon-green/5 rounded-lg">
+                    <span className="font-medium text-sm">{selectedStudent.nom} {selectedStudent.prenom}</span>
+                    <span className="text-xs text-gray-500">#{selectedStudent.matricule}</span>
+                    <span className="text-xs bg-cameroon-green/10 text-cameroon-green px-2 py-0.5 rounded ml-auto">{selectedStudent.classe || '—'}</span>
+                    <button type="button" onClick={() => { setSelectedStudent(null); setPaieForm({ ...paieForm, matricule: 0 }); setCheckedTrancheIds(new Set()); setPaidTrancheIds(new Set()) }}
+                      className="text-xs text-red-500 hover:text-red-700">{isFr ? 'Changer' : 'Change'}</button>
+                  </div>
+                  {sc && availableTranches.length > 0 && (
+                    <div className="border rounded-lg divide-y text-sm">
+                      <p className="px-3 py-1.5 font-medium text-xs text-gray-500">{isFr ? 'Tranches disponibles' : 'Available installments'}</p>
+                      {availableTranches.map(t => (
+                        <label key={t.idTranche} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                          <input type="checkbox" checked={checkedTrancheIds.has(t.idTranche)}
+                            onChange={() => {
+                              const next = new Set(checkedTrancheIds)
+                              next.has(t.idTranche) ? next.delete(t.idTranche) : next.add(t.idTranche)
+                              setCheckedTrancheIds(next)
+                              const newTotal = clsTranches.filter(tr => next.has(tr.idTranche)).reduce((s, tr) => s + tr.montant, 0)
+                              setPaieForm(f => ({ ...f, montant: newTotal }))
+                            }}
+                            className="text-cameroon-green focus:ring-cameroon-green" />
+                          <span className="flex-1 text-sm">{t.libelle}</span>
+                          <span className="text-sm font-medium">{formatCurrency(t.montant)}</span>
+                          {t.date_limite && <span className="text-xs text-gray-400">{isFr ? 'limite' : 'due'}: {formatDate(t.date_limite)}</span>}
+                        </label>
+                      ))}
+                      <div className="flex items-center justify-between px-3 py-2 bg-gray-50 font-medium">
+                        <span>{isFr ? 'Total cochée' : 'Checked total'}</span>
+                        <span className="text-cameroon-green">{formatCurrency(checkedTotal)}</span>
+                      </div>
+                      {sc && (
+                        <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500">
+                          <span>{isFr ? 'Scolarité totale' : 'Total tuition'}: {formatCurrency(sc.inscription + sc.pension)}</span>
+                          <span>{isFr ? 'Reste' : 'Remaining'}: {formatCurrency(Math.max(0, (sc.inscription + sc.pension) - checkedTotal))}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {(!sc || availableTranches.length === 0) && (
+                    <p className="text-xs text-gray-400">{isFr ? 'Aucune tranche disponible pour cette classe' : 'No installments for this class'}</p>
+                  )}
+                </div>
+              )
+            })()}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">{t('payment.montant')}</label>
@@ -448,85 +475,6 @@ export default function PaymentsPage() {
             <input type="text" value={modeLibelle} onChange={(e) => setModeLibelle(e.target.value)} required className="w-full px-3 py-2 border rounded-lg text-sm" />
           </div>
           <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium">{t('common.save')}</button>
-        </form>
-      </Modal>
-
-      <Modal open={editingTranche !== null} onClose={() => { setEditingTranche(null); setTrancheForm({ libelle: '', montant: 0, date_limite: '' }) }} title="Modifier la tranche">
-        <form onSubmit={handleTrancheSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Libellé</label>
-            <input type="text" value={trancheForm.libelle} onChange={(e) => setTrancheForm({ ...trancheForm, libelle: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Montant</label>
-            <input type="number" min={0} value={trancheForm.montant || ''} onChange={(e) => setTrancheForm({ ...trancheForm, montant: parseFloat(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Date limite</label>
-            <input type="date" value={trancheForm.date_limite} onChange={(e) => setTrancheForm({ ...trancheForm, date_limite: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" />
-          </div>
-          <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium">{t('common.save')}</button>
-        </form>
-      </Modal>
-
-      <Modal open={tuitionModal} onClose={() => setTuitionModal(false)} title={editingTuition ? 'Modifier les frais' : t('payment.addTuition')}>
-        <form onSubmit={handleTuitionSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('class.cycle')}</label>
-            <select value={tuitionForm.idCycle} onChange={(e) => setTuitionForm({ ...tuitionForm, idCycle: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm">
-              <option value="">{t('common.select')}</option>
-              {cycles.map((c) => <option key={c.idCycle} value={c.idCycle}>{c.libelle}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('payment.inscription')}</label>
-              <input type="number" min={0} value={tuitionForm.inscription || ''} onChange={(e) => setTuitionForm({ ...tuitionForm, inscription: parseFloat(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('payment.pension')}</label>
-              <input type="number" min={0} value={tuitionForm.pension || ''} onChange={(e) => setTuitionForm({ ...tuitionForm, pension: parseFloat(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('payment.nbreTranches')}</label>
-            <div className="flex gap-3">
-              {[1, 2, 3].map((n) => (
-                <label key={n} className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 has-checked:bg-cameroon-green/5 has-checked:border-cameroon-green">
-                  <input type="radio" name="nbreTranche" value={n} checked={tuitionForm.nbreTranche === n} onChange={() => handleNbreTrancheChange(n)} className="text-cameroon-green focus:ring-cameroon-green" />
-                  <span className="text-sm font-medium">{n}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {Array.from({ length: tuitionForm.nbreTranche }).map((_, i) => (
-            <div key={i}>
-              <label className="block text-sm font-medium mb-1">
-                {t('payment.tranche')} {i + 1} — {formatCurrency(Math.round((tuitionForm.inscription + tuitionForm.pension) / tuitionForm.nbreTranche))}
-              </label>
-              <input
-                type="date"
-                value={trancheDates[i] || ''}
-                onChange={(e) => {
-                  const next = [...trancheDates]
-                  next[i] = e.target.value
-                  setTrancheDates(next)
-                }}
-                required
-                className="w-full px-3 py-2 border rounded-lg text-sm"
-              />
-            </div>
-          ))}
-
-          <div className="pt-2 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium">{t('payment.totalDue')}: <span className="text-cameroon-green">{formatCurrency(tuitionForm.inscription + tuitionForm.pension)}</span></p>
-            <p className="text-xs text-gray-500">{t('payment.nbreTranches')}: {tuitionForm.nbreTranche} × {formatCurrency(Math.round((tuitionForm.inscription + tuitionForm.pension) / tuitionForm.nbreTranche))}</p>
-          </div>
-
-          <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium hover:bg-cameroon-green-light transition">
-            {t('common.save')}
-          </button>
         </form>
       </Modal>
     </div>

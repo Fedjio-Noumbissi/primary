@@ -13,7 +13,7 @@ router.get('/natures', async (_req, res) => {
 router.get('/epreuves', async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT e.*, n.libelle AS nature FROM Epreuve e JOIN NatureEpreuve n ON e.idNature = n.idNature WHERE e.isDelete = 0'
+      'SELECT e.*, n.libelle AS nature FROM Epreuve e JOIN NatureEpreuve n ON e.idNature = n.idNature WHERE e.isDelete IS NULL OR e.isDelete = 0'
     )
     res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }

@@ -41,8 +41,12 @@ export default function StudentProfile() {
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-start gap-5">
-          <div className="w-20 h-20 rounded-full bg-cameroon-green text-white flex items-center justify-center text-2xl font-bold">
-            {student.nom[0]}{student.prenom[0]}
+          <div className="w-20 h-20 rounded-full overflow-hidden bg-cameroon-green text-white flex items-center justify-center text-2xl font-bold shrink-0">
+            {student.photoURL ? (
+              <img src={student.photoURL} alt={`${student.nom} ${student.prenom}`} className="w-full h-full object-cover" />
+            ) : (
+              `${student.nom[0]}${student.prenom[0]}`
+            )}
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900">{student.nom} {student.prenom}</h1>

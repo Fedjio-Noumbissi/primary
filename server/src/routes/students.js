@@ -235,9 +235,15 @@ router.patch('/:id/toggle-active', authenticate, async (req, res) => {
 
 router.post('/enroll', authenticate, async (req, res) => {
   try {
-    const { matricule, idSalle, idAcademi, idScolarite, parent } = req.body
+    let { matricule, idClasse, idSalle, idAcademi, idScolarite, parent } = req.body
     const idAdmin = req.user?.id || 1
     await pool.query('ALTER TABLE Frequente ADD COLUMN idScolarite INT NULL').catch(() => {})
+
+    if (idClasse && !idSalle) {
+      const [salles] = await pool.query('SELECT idSalle FROM Salle WHERE idClasse = ? AND actif = 1 LIMIT 1', [idClasse])
+      idSalle = salles.length ? salles[0].idSalle : 0
+    }
+
     const [existing] = await pool.query('SELECT * FROM Frequente WHERE matricule = ? AND idAcademi = ?', [matricule, idAcademi])
     if (existing.length) {
       await pool.query('UPDATE Frequente SET idSalle = ?, idAdmin = ?, idScolarite = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, idAdmin, idScolarite || null, matricule, idAcademi])

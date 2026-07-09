@@ -26,7 +26,6 @@ import LibraryPage from './pages/library/LibraryPage'
 import MessagePage from './pages/messages/MessagePage'
 import DisciplinePage from './pages/discipline/DisciplinePage'
 import SettingsPage from './pages/settings/SettingsPage'
-import AuditLogsPage from './pages/settings/AuditLogsPage'
 import UserManagement from './pages/users/UserManagement'
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: number[] }) {
@@ -91,7 +90,6 @@ function AppRoutes() {
         <Route path="messages" element={<MessagePage />} />
         <Route path="discipline" element={<DisciplinePage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="audit-logs" element={<AuditLogsPage />} />
       </Route>
 
       <Route path="/teacher" element={<ProtectedRoute allowedRoles={[2]}><AppLayout><Outlet /></AppLayout></ProtectedRoute>}>

@@ -5,6 +5,7 @@ const router = Router()
 
 router.get('/annees', async (_req, res) => {
   try {
+    try { await pool.query('ALTER TABLE AnneeAcademique ADD COLUMN isDelete TINYINT(1) DEFAULT 0') } catch (_) {}
     const [rows] = await pool.query('SELECT * FROM AnneeAcademique WHERE isDelete = 0')
     res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -12,10 +13,12 @@ router.get('/annees', async (_req, res) => {
 
 router.post('/annees', async (req, res) => {
   try {
+    try { await pool.query('ALTER TABLE AnneeAcademique ADD COLUMN isDelete TINYINT(1) DEFAULT 0') } catch (_) {}
     const { libelle, periode } = req.body
+    const idAdmin = req.user?.id || 1
     const [result] = await pool.query(
-      'INSERT INTO AnneeAcademique (libelle, periode, created_at, idAdmin) VALUES (?, ?, CURDATE(), 1)',
-      [libelle, periode]
+      'INSERT INTO AnneeAcademique (libelle, periode, created_at, idAdmin, isDelete) VALUES (?, ?, CURDATE(), ?, 0)',
+      [libelle, periode, idAdmin]
     )
     const [rows] = await pool.query('SELECT * FROM AnneeAcademique WHERE idAnnee = ?', [result.insertId])
     res.status(201).json(rows[0])
@@ -89,6 +92,15 @@ router.patch('/trimestres/:id/close', async (req, res) => {
     await pool.query('UPDATE Trimestre SET clos = 1 WHERE idTrimes = ?', [Number(id)])
     const [rows] = await pool.query('SELECT * FROM Trimestre WHERE idTrimes = ?', [Number(id)])
     res.json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.delete('/annees/:id', async (req, res) => {
+  try {
+    try { await pool.query('ALTER TABLE AnneeAcademique ADD COLUMN isDelete TINYINT(1) DEFAULT 0') } catch (_) {}
+    const { id } = req.params
+    await pool.query('UPDATE AnneeAcademique SET isDelete = 1 WHERE idAnnee = ?', [Number(id)])
+    res.json({ message: 'Deleted' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { disciplineAPI, studentAPI } from '../../services/api'
+import { disciplineAPI, studentAPI, classAPI } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import DataTable from '../../components/DataTable'
 import Modal from '../../components/Modal'
@@ -10,21 +10,29 @@ import toast from 'react-hot-toast'
 import type { Student } from '../../types'
 
 export default function DisciplinePage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { user } = useAuth()
+  const isFr = i18n.language === 'fr'
   const [events, setEvents] = useState<any[]>([])
   const [students, setStudents] = useState<Student[]>([])
+  const [classes, setClasses] = useState<any[]>([])
+  const [cycles, setCycles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({ matricule: 0, libelle: '', points: '', commentaire: '' })
+  const [filterClasse, setFilterClasse] = useState('')
 
   useEffect(() => {
     Promise.all([
       disciplineAPI.getAll(),
       studentAPI.getAll(),
-    ]).then(([evRes, stRes]) => {
+      classAPI.getClasses(),
+      classAPI.getCycles(),
+    ]).then(([evRes, stRes, cRes, cyRes]) => {
       setEvents(evRes.data)
       setStudents(stRes.data)
+      setClasses(cRes.data)
+      setCycles(cyRes.data)
       setLoading(false)
     }).catch(() => {
       disciplineAPI.getAll().then((res) => {
@@ -55,6 +63,11 @@ export default function DisciplinePage() {
       toast.error(t('toast.error'))
     }
   }
+
+  const activeCycleIds = new Set(cycles.map(c => c.idCycle))
+  const cycleOrder = Object.fromEntries(cycles.map((c, i) => [c.idCycle, i]))
+  const visibleClasses = classes.filter(c => activeCycleIds.has(c.idCycle))
+    .sort((a, b) => (cycleOrder[a.idCycle] ?? 0) - (cycleOrder[b.idCycle] ?? 0) || a.idClasse - b.idClasse)
 
   if (loading) return <LoadingSkeleton rows={4} />
 
@@ -90,6 +103,15 @@ export default function DisciplinePage() {
       <Modal open={modal} onClose={() => setModal(false)} title={t('discipline.add')}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label className="block text-sm font-medium mb-1">{t('student.classe')}</label>
+            <select value={filterClasse} onChange={(e) => { setFilterClasse(e.target.value); setForm(f => ({ ...f, matricule: 0 })) }} className="w-full px-3 py-2 border rounded-lg text-sm">
+              <option value="">{isFr ? 'Toutes les classes' : 'All classes'}</option>
+              {visibleClasses.map(cl => (
+                <option key={cl.idClasse} value={cl.libelle}>{cl.libelle}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium mb-1">{t('discipline.student')}</label>
             <select
               value={form.matricule}
@@ -98,7 +120,7 @@ export default function DisciplinePage() {
               className="w-full px-3 py-2 border rounded-lg text-sm"
             >
               <option value={0}>--</option>
-              {students.map((s) => (
+              {students.filter((s: any) => !filterClasse || s.classe === filterClasse).map((s) => (
                 <option key={s.matricule} value={s.matricule}>{s.nom} {s.prenom}</option>
               ))}
             </select>
@@ -121,7 +143,6 @@ export default function DisciplinePage() {
               onChange={(e) => setForm({ ...form, points: e.target.value })}
               className="w-full px-3 py-2 border rounded-lg text-sm"
             />
-
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">{t('discipline.comment')}</label>

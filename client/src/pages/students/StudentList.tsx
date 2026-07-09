@@ -2,11 +2,11 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { studentAPI, classAPI } from '../../services/api'
-import { Student, Salle } from '../../types'
+import { Student, Salle, Classe } from '../../types'
 import DataTable from '../../components/DataTable'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import Modal from '../../components/Modal'
-import { Plus, Eye, Edit, UserCheck, ToggleLeft, ToggleRight, Trash2, MoreVertical, Download, RefreshCw } from 'lucide-react'
+import { Plus, Eye, Edit, ToggleLeft, ToggleRight, Trash2, MoreVertical, Download, RefreshCw } from 'lucide-react'
 import { formatDate } from '../../utils/formatters'
 import toast from 'react-hot-toast'
 
@@ -95,6 +95,7 @@ export default function StudentList() {
   const { t } = useTranslation()
   const [students, setStudents] = useState<Student[]>([])
   const [salles, setSalles] = useState<Salle[]>([])
+  const [classList, setClassList] = useState<Classe[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [classeFilter, setClasseFilter] = useState('')
@@ -103,13 +104,14 @@ export default function StudentList() {
   const [classForm, setClassForm] = useState({ idSalle: 0 })
   const [busy, setBusy] = useState(false)
 
-  const classes = useMemo(() => Array.from(new Set(students.map(s => s.classe).filter(Boolean))) as string[], [students])
+  const classes = useMemo(() => classList.map(c => c.libelle), [classList])
 
   useEffect(() => {
-    Promise.all([studentAPI.getAll(), classAPI.getSalles()])
-      .then(([sRes, saRes]) => {
+    Promise.all([studentAPI.getAll(), classAPI.getSalles(), classAPI.getClasses()])
+      .then(([sRes, saRes, cRes]) => {
         setStudents(sRes.data)
         setSalles(saRes.data)
+        setClassList(cRes.data)
         setLoading(false)
       })
   }, [])
@@ -178,6 +180,13 @@ export default function StudentList() {
   function formatCFA(n: number) { return n.toLocaleString() + ' FCFA' }
 
   const columns = [
+    { key: 'photoURL', label: '', render: (s: Student) => s.photoURL ? (
+      <img src={s.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+    ) : (
+      <div className="w-8 h-8 rounded-full bg-cameroon-green/20 text-cameroon-green flex items-center justify-center text-xs font-bold">
+        {s.nom[0]}{s.prenom[0]}
+      </div>
+    )},
     { key: 'matricule', label: t('student.matricule'), render: (s: Student) => <span className="font-mono">#{s.matricule}</span> },
     { key: 'nom', label: t('student.nom'), render: (s: Student) => <span className="font-medium">{s.nom} {s.prenom}</span> },
     { key: 'dateNaissance', label: t('student.dateNaissance'), render: (s: Student) => formatDate(s.dateNaissance) },
@@ -202,13 +211,6 @@ export default function StudentList() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">{t('student.title')}</h1>
         <div className="flex gap-2">
-          <Link
-            to="/admin/students/enroll"
-            className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition"
-          >
-            <UserCheck size={16} />
-            {t('student.enroll')}
-          </Link>
           <Link
             to="/admin/students/new"
             className="flex items-center gap-2 px-4 py-2 bg-cameroon-green text-white rounded-lg text-sm hover:bg-cameroon-green-light transition"

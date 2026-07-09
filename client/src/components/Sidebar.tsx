@@ -4,7 +4,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, GraduationCap, School, Calendar,
   BookOpen, ClipboardList, FileText, CreditCard, Users as ParentIcon,
-  BookMarked, MessageSquare, ShieldAlert, Settings, X, UserCog, ScrollText
+  BookMarked, MessageSquare, ShieldAlert, Settings, X, UserCog
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -31,7 +31,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     { to: '/admin/messages', icon: MessageSquare, label: 'nav.messages' },
     { to: '/admin/discipline', icon: ShieldAlert, label: 'nav.discipline' },
     { to: '/admin/settings', icon: Settings, label: 'nav.settings' },
-    { to: '/admin/audit-logs', icon: ScrollText, label: 'nav.auditLogs' },
   ]
 
   const teacherLinks = [

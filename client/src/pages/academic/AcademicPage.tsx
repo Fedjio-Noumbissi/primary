@@ -6,7 +6,7 @@ import LoadingSkeleton from '../../components/LoadingSkeleton'
 import Modal from '../../components/Modal'
 import {
   Plus, CheckCircle, Clock, Ban, Lock, Unlock,
-  Star, ChevronDown, ChevronRight, Calendar,
+  Star, ChevronDown, ChevronRight, Calendar, Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -82,6 +82,13 @@ export default function AcademicPage() {
     load()
   }
 
+  async function deleteAnnee(id: number, libelle: string) {
+    if (!confirm(`Supprimer l'année "${libelle}" ? Cette action est irréversible.`)) return
+    await academicAPI.deleteAnnee(id)
+    toast.success('Année supprimée')
+    load()
+  }
+
   async function createAnnee(e: React.FormEvent) {
     e.preventDefault()
     await academicAPI.createAnnee(anneeForm)
@@ -142,13 +149,13 @@ export default function AcademicPage() {
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium text-gray-500">Année :</span>
         {annees.map((a) => {
-          const isActive = a.actif
+          const isActive = !!a.actif
           const isSelected = a.idAnnee === selectedAnnee
           return (
             <button
               key={a.idAnnee}
               onClick={() => setSelectedAnnee(a.idAnnee)}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition ${
+              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition group ${
                 isSelected
                   ? 'border-cameroon-green bg-cameroon-green/5 text-cameroon-green'
                   : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
@@ -169,6 +176,13 @@ export default function AcademicPage() {
                   <Star size={14} />
                 </button>
               )}
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteAnnee(a.idAnnee, a.libelle) }}
+                className="ml-1 p-0.5 hover:bg-red-100 rounded text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
+                title="Supprimer"
+              >
+                <Trash2 size={14} />
+              </button>
             </button>
           )
         })}

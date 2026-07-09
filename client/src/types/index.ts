@@ -65,6 +65,7 @@ export interface Classe {
   libelle: string;
   idCycle: number;
   cycle?: string;
+  specialite?: string;
   titulaire?: number;
   titulaireNom?: string;
   isDelete?: number;
@@ -76,6 +77,7 @@ export interface Salle {
   position: string;
   surface: string;
   idClasse: number;
+  idCycle?: number;
   classe?: string;
   actif: boolean;
   capacite?: number;
@@ -170,6 +172,7 @@ export interface Scolarite {
   pension: number;
   nbreTranche: number;
   idCycle: number;
+  idClasse?: number | null;
   cycle?: string;
 }
 
@@ -244,18 +247,6 @@ export interface SearchResult {
   students: { matricule: number; nom: string; prenom: string; classe: string | null; salle: string | null }[]
   teachers: { idEnseignant: number; nom: string; prenom: string; classeLibelle: string | null }[]
   pages: { label: string; labelEn: string; path: string; icon: string; roles: number[] }[]
-}
-
-export interface AuditLog {
-  id: number;
-  idAdmin: number | null;
-  adminName: string;
-  action: string;
-  entity: string;
-  entityId: number | null;
-  details: any;
-  ip_address: string | null;
-  created_at: string;
 }
 
 export interface DashboardStats {

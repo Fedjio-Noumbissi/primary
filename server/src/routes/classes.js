@@ -207,11 +207,12 @@ router.get('/classes/:id/pdf', async (req, res) => {
 router.get('/salles', async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT s.idSalle, s.libelle, s.position, s.surface, s.idClasse, s.actif, s.capacite,
+      `SELECT s.idSalle, s.libelle, s.position, s.surface, s.idClasse, cl.idCycle, s.actif, s.capacite,
               cl.libelle AS classe, COUNT(f.idSalle) AS occupancy
        FROM Salle s
        JOIN Classe cl ON s.idClasse = cl.idClasse
        LEFT JOIN Frequente f ON f.idSalle = s.idSalle
+       WHERE cl.isDelete = 0
        GROUP BY s.idSalle`
     )
     res.json(rows)

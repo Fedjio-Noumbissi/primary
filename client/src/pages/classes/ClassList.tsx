@@ -6,15 +6,12 @@ import LoadingSkeleton from '../../components/LoadingSkeleton'
 import Modal from '../../components/Modal'
 import {
   Plus, ChevronRight, ChevronDown, Circle, Users, User,
-  Archive, ArchiveRestore, Download, Edit3, ToggleLeft, ToggleRight, Trash2,
+  Download, Edit3, ToggleLeft, ToggleRight, Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-type Tab = 'active' | 'archived'
-
 export default function ClassList() {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<Tab>('active')
   const [cycles, setCycles] = useState<Cycle[]>([])
   const [classes, setClasses] = useState<Classe[]>([])
   const [salles, setSalles] = useState<(Salle & { occupancy?: number })[]>([])
@@ -30,12 +27,9 @@ export default function ClassList() {
   const [classForm, setClassForm] = useState({ libelle: '', idCycle: 0 })
   const [salleForm, setSalleForm] = useState({ libelle: '', position: '', surface: '', capacite: 0, idClasse: 0 })
 
-  const load = (activeTab: Tab = tab) => {
+  const load = () => {
     setLoading(true)
-    const calls = activeTab === 'active'
-      ? [classAPI.getCycles(), classAPI.getClasses(), classAPI.getSalles()]
-      : [classAPI.getArchivedCycles(), classAPI.getArchivedClasses(), classAPI.getSalles()]
-    Promise.all([...calls, teacherAPI.getAll()])
+    Promise.all([classAPI.getCycles(), classAPI.getClasses(), classAPI.getSalles(), teacherAPI.getAll()])
       .then(([c, cl, s, te]) => {
         setCycles(c.data)
         setClasses(cl.data)
@@ -45,12 +39,7 @@ export default function ClassList() {
       })
   }
 
-  useEffect(() => { load('active') }, [])
-
-  function switchTab(newTab: Tab) {
-    setTab(newTab)
-    load(newTab)
-  }
+  useEffect(() => { load() }, [])
 
   const toggleCycle = (id: number) => {
     setExpandedCycles((prev) => {
@@ -122,18 +111,6 @@ export default function ClassList() {
     load()
   }
 
-  async function handleToggleArchiveCycle(id: number) {
-    await classAPI.toggleArchiveCycle(id)
-    toast.success(t('toast.saved'))
-    load()
-  }
-
-  async function handleToggleArchiveClass(id: number) {
-    await classAPI.toggleArchiveClass(id)
-    toast.success(t('toast.saved'))
-    load()
-  }
-
   async function handleToggleActiveSalle(id: number) {
     await classAPI.toggleActiveSalle(id)
     toast.success(t('toast.saved'))
@@ -183,16 +160,6 @@ export default function ClassList() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-4 border-b border-gray-200">
-        <button onClick={() => switchTab('active')} className={`pb-2 text-sm font-medium border-b-2 transition ${tab === 'active' ? 'border-cameroon-green text-cameroon-green' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-          Actifs
-        </button>
-        <button onClick={() => switchTab('archived')} className={`pb-2 text-sm font-medium border-b-2 transition ${tab === 'archived' ? 'border-cameroon-green text-cameroon-green' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-          Archivés
-        </button>
-      </div>
-
       {/* Tree View */}
       {cycles.length === 0 ? (
         <p className="text-gray-400 text-sm">{t('common.noData')}</p>
@@ -214,16 +181,6 @@ export default function ClassList() {
                   <span className="text-xs text-cameroon-green ml-auto flex items-center gap-1">
                     <Users size={14} /> {totalStudents} élève(s)
                   </span>
-                  {tab === 'archived' && (
-                    <button onClick={(e) => { e.stopPropagation(); handleToggleArchiveCycle(cycle.idCycle) }} className="p-1 hover:bg-gray-200 rounded text-green-600" title="Restaurer">
-                      <ArchiveRestore size={16} />
-                    </button>
-                  )}
-                  {tab === 'active' && (
-                    <button onClick={(e) => { e.stopPropagation(); handleToggleArchiveCycle(cycle.idCycle) }} className="p-1 hover:bg-gray-200 rounded text-gray-400" title="Archiver">
-                      <Archive size={16} />
-                    </button>
-                  )}
                 </div>
 
                 {/* Classes accordion */}
@@ -267,15 +224,6 @@ export default function ClassList() {
                               <Download size={15} />
                             </button>
 
-                            {tab === 'archived' ? (
-                              <button onClick={(e) => { e.stopPropagation(); handleToggleArchiveClass(cl.idClasse) }} className="p-1 hover:bg-gray-100 rounded text-green-600" title="Restaurer">
-                                <ArchiveRestore size={15} />
-                              </button>
-                            ) : (
-                              <button onClick={(e) => { e.stopPropagation(); handleToggleArchiveClass(cl.idClasse) }} className="p-1 hover:bg-gray-100 rounded text-gray-400" title="Archiver">
-                                <Archive size={15} />
-                              </button>
-                            )}
                             <button onClick={(e) => { e.stopPropagation(); handleDeleteClass(cl.idClasse) }} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600" title="Supprimer">
                               <Trash2 size={15} />
                             </button>
@@ -305,11 +253,9 @@ export default function ClassList() {
                                     ) : (
                                       <span className="text-xs text-gray-400 ml-auto">{s.occupancy || 0} élève(s)</span>
                                     )}
-                                    {tab === 'active' && (
-                                      <button onClick={() => handleToggleActiveSalle(s.idSalle)} className={`p-1 rounded ${s.actif ? 'text-amber-500 hover:bg-amber-50' : 'text-green-500 hover:bg-green-50'}`} title={s.actif ? 'Désactiver' : 'Activer'}>
+                                    <button onClick={() => handleToggleActiveSalle(s.idSalle)} className={`p-1 rounded ${s.actif ? 'text-amber-500 hover:bg-amber-50' : 'text-green-500 hover:bg-green-50'}`} title={s.actif ? 'Désactiver' : 'Activer'}>
                                         {s.actif ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                                       </button>
-                                    )}
                                     <button onClick={() => handleDeleteSalle(s.idSalle)} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600" title="Supprimer">
                                       <Trash2 size={14} />
                                     </button>

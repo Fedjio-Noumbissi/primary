@@ -12,7 +12,7 @@ router.get('/messages', async (req, res) => {
       query += ' WHERE receiverRole = ? AND receiverId = ?'
       params.push(role, parseInt(idPers))
     }
-    query += ' ORDER BY created_at DESC'
+    query += ' ORDER BY created_at DESC LIMIT 100'
     const [rows] = await pool.query(query, params)
     res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }

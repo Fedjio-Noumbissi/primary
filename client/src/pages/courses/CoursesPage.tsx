@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import type { EventClickArg, DateSelectArg, EventDropArg, EventResizeDoneArg } from '@fullcalendar/core'
+import type { EventClickArg, DateSelectArg, EventDropArg, EventResizeDoneArg, DatesSetArg } from '@fullcalendar/core'
 import { courseAPI, teacherAPI, classAPI, dashboardAPI } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { Course, EmploiDuTemps, Classe, Teacher, Salle, Cycle } from '../../types'
@@ -86,6 +86,14 @@ export default function CoursesPage() {
 
   const [conflicts, setConflicts] = useState<EmploiDuTemps[]>([])
   const [conflictModal, setConflictModal] = useState(false)
+  const [currentDate, setCurrentDate] = useState<string>(() => {
+    const m = getMonday(new Date())
+    return m.toISOString().slice(0, 10)
+  })
+  const [slotMinTime, setSlotMinTime] = useState('07:00:00')
+  const [slotMaxTime, setSlotMaxTime] = useState('17:00:00')
+  const [slotDuration, setSlotDuration] = useState('01:00:00')
+  const [showWeekends, setShowWeekends] = useState(false)
 
   const loadTimetable = useCallback(() => {
     const params: Record<string, number> = {}
@@ -162,6 +170,10 @@ export default function CoursesPage() {
     setSlotInfo({ jour, heure })
     setSlotForm({ idCycle: 0, idClasse: 0, idCours: 0, idEnseignant: 0, idSalle: 0 })
     setSlotModal(true)
+  }
+
+  function handleDatesSet(arg: DatesSetArg) {
+    setCurrentDate(arg.start.toISOString().slice(0, 10))
   }
 
   function handleEventClick(clickInfo: EventClickArg) {
@@ -451,19 +463,44 @@ ${['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:0
             )}
           </div>
         </div>
+        <div className="flex items-center gap-2 mb-4">
+          <label className="text-xs text-gray-500">Début</label>
+          <input type="time" value={slotMinTime.slice(0,5)} onChange={(e) => setSlotMinTime(e.target.value + ':00')} className="px-2 py-1.5 border rounded-lg text-sm w-24" />
+          <label className="text-xs text-gray-500">Fin</label>
+          <input type="time" value={slotMaxTime.slice(0,5)} onChange={(e) => setSlotMaxTime(e.target.value + ':00')} className="px-2 py-1.5 border rounded-lg text-sm w-24" />
+          <label className="text-xs text-gray-500">Durée</label>
+          <select value={slotDuration} onChange={(e) => setSlotDuration(e.target.value)} className="px-2 py-1.5 border rounded-lg text-sm">
+            <option value="00:30:00">30 min</option>
+            <option value="01:00:00">1 h</option>
+            <option value="01:30:00">1 h 30</option>
+            <option value="02:00:00">2 h</option>
+          </select>
+          <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
+            <input type="checkbox" checked={showWeekends} onChange={(e) => setShowWeekends(e.target.checked)} className="rounded" />
+            Samedi
+          </label>
+          <input
+            type="date"
+            value={currentDate}
+            onChange={(e) => { setCurrentDate(e.target.value); calendarRef.current?.getApi().gotoDate(e.target.value) }}
+            className="px-3 py-1.5 border rounded-lg text-sm ml-auto"
+          />
+        </div>
         <div className="timetable-calendar">
           <FullCalendar
             ref={calendarRef}
             plugins={[timeGridPlugin, interactionPlugin]}
             initialView="timeGridWeek"
-            headerToolbar={{ left: '', center: 'title', right: '' }}
+            headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
+            initialDate={currentDate}
+            datesSet={handleDatesSet}
             firstDay={1}
             locale="fr"
-            slotMinTime="07:00:00"
-            slotMaxTime="17:00:00"
-            slotDuration="01:00:00"
+            slotMinTime={slotMinTime}
+            slotMaxTime={slotMaxTime}
+            slotDuration={slotDuration}
             allDaySlot={false}
-            weekends={false}
+            weekends={showWeekends}
             height="auto"
             events={events}
             selectable={!isTeacher}

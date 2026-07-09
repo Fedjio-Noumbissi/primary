@@ -5,13 +5,13 @@ import PDFDocument from 'pdfkit'
 const router = Router()
 
 function formatCurrency(amount) {
-  return amount.toLocaleString('fr-FR', { style: 'currency', currency: 'XAF', minimumFractionDigits: 0 })
+  return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' FCFA'
 }
 
 router.get('/paiements/:id/receipt', async (req, res) => {
   try {
     const [payments] = await pool.query(
-      `SELECT p.*, m.libelle AS mode, el.nom, el.prenom, cl.libelle AS classe, cy.idCycle
+      `SELECT p.*, m.libelle AS mode, el.nom, el.prenom, cl.libelle AS classe, cl.idClasse AS idClasse
        FROM Paiement p
        JOIN Mode m ON p.idMode = m.idMode
        JOIN eleves el ON CAST(el.matricule AS UNSIGNED) = p.matricule
@@ -19,7 +19,6 @@ router.get('/paiements/:id/receipt', async (req, res) => {
          AND f.idFrequente = (SELECT MAX(f2.idFrequente) FROM Frequente f2 WHERE f2.matricule = CAST(el.matricule AS UNSIGNED))
        LEFT JOIN Salle s ON s.idSalle = f.idSalle
        LEFT JOIN Classe cl ON cl.idClasse = s.idClasse
-       LEFT JOIN Cycle cy ON cy.idCycle = el.idCycle
        WHERE p.idPaie = ?`,
       [Number(req.params.id)]
     )
@@ -32,8 +31,8 @@ router.get('/paiements/:id/receipt', async (req, res) => {
     )
 
     const [scolarites] = await pool.query(
-      'SELECT * FROM Scolarite WHERE idCycle = ?',
-      [paie.idCycle || 1]
+      'SELECT * FROM Scolarite WHERE idClasse = ?',
+      [paie.idClasse || null]
     )
     const scolarite = scolarites[0]
     const totalDue = (scolarite?.inscription || 0) + (scolarite?.pension || 0)
@@ -141,6 +140,7 @@ router.get('/paiements/:id/receipt', async (req, res) => {
 
 router.get('/scolarites', async (_req, res) => {
   try {
+    await pool.query('ALTER TABLE Scolarite ADD COLUMN idClasse INT NULL').catch(() => {})
     const [rows] = await pool.query(
       'SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle'
     )
@@ -150,10 +150,10 @@ router.get('/scolarites', async (_req, res) => {
 
 router.post('/scolarites', async (req, res) => {
   try {
-    const { inscription, pension, nbreTranche, idCycle, description } = req.body
+    const { inscription, pension, nbreTranche, idCycle, idClasse, description } = req.body
     const [result] = await pool.query(
-      'INSERT INTO Scolarite (inscription, pension, nbreTranche, idCycle, description, idFondateur) VALUES (?, ?, ?, ?, ?, 1)',
-      [inscription, pension, nbreTranche || 3, idCycle, description || `Plan cycle ${idCycle}`]
+      'INSERT INTO Scolarite (inscription, pension, nbreTranche, idCycle, idClasse, description, idFondateur) VALUES (?, ?, ?, ?, ?, ?, 1)',
+      [inscription, pension, nbreTranche || 3, idCycle || null, idClasse || null, description || `Plan ${idClasse ? `classe #${idClasse}` : `cycle ${idCycle}`}`]
     )
     const [rows] = await pool.query('SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle WHERE s.idScolarite = ?', [result.insertId])
     res.status(201).json(rows[0])
@@ -163,11 +163,14 @@ router.post('/scolarites', async (req, res) => {
 router.get('/scolarite/by-classe/:idClasse', async (req, res) => {
   try {
     const { idClasse } = req.params
-    const [classes] = await pool.query('SELECT idCycle FROM Classe WHERE idClasse = ?', [Number(idClasse)])
-    if (!classes.length) return res.status(404).json({ message: 'Classe not found' })
-    const idCycle = classes[0].idCycle
-    const [scolarites] = await pool.query('SELECT * FROM Scolarite WHERE idCycle = ?', [idCycle])
-    const scolarite = scolarites.length ? scolarites[0] : null
+    const [scolarites] = await pool.query('SELECT * FROM Scolarite WHERE idClasse = ?', [Number(idClasse)])
+    let scolarite = scolarites.length ? scolarites[0] : null
+    if (!scolarite) {
+      const [classes] = await pool.query('SELECT idCycle FROM Classe WHERE idClasse = ?', [Number(idClasse)])
+      if (!classes.length) return res.status(404).json({ message: 'Classe not found' })
+      const [cycleScolarites] = await pool.query('SELECT * FROM Scolarite WHERE idCycle = ? AND idClasse IS NULL', [classes[0].idCycle])
+      scolarite = cycleScolarites.length ? cycleScolarites[0] : null
+    }
     let tranches = []
     if (scolarite) {
       const [rows] = await pool.query('SELECT * FROM Tranches WHERE idScolarite = ?', [scolarite.idScolarite])
@@ -180,10 +183,10 @@ router.get('/scolarite/by-classe/:idClasse', async (req, res) => {
 router.put('/scolarite/:idScolarite', async (req, res) => {
   try {
     const { idScolarite } = req.params
-    const { inscription, pension, nbreTranche, description } = req.body
+    const { inscription, pension, nbreTranche, idClasse, description } = req.body
     await pool.query(
-      'UPDATE Scolarite SET inscription = ?, pension = ?, nbreTranche = ?, description = ? WHERE idScolarite = ?',
-      [inscription, pension, nbreTranche || 3, description || '', Number(idScolarite)]
+      'UPDATE Scolarite SET inscription = ?, pension = ?, nbreTranche = ?, idClasse = ?, description = ? WHERE idScolarite = ?',
+      [inscription, pension, nbreTranche || 3, idClasse || null, description || '', Number(idScolarite)]
     )
     const [rows] = await pool.query('SELECT * FROM Scolarite WHERE idScolarite = ?', [Number(idScolarite)])
     res.json(rows[0])
@@ -192,10 +195,10 @@ router.put('/scolarite/:idScolarite', async (req, res) => {
 
 router.put('/scolarites/:id', async (req, res) => {
   try {
-    const { inscription, pension, nbreTranche, idCycle } = req.body
+    const { inscription, pension, nbreTranche, idCycle, idClasse } = req.body
     await pool.query(
-      'UPDATE Scolarite SET inscription = ?, pension = ?, nbreTranche = ?, idCycle = ? WHERE idScolarite = ?',
-      [inscription, pension, nbreTranche, idCycle, req.params.id]
+      'UPDATE Scolarite SET inscription = ?, pension = ?, nbreTranche = ?, idCycle = ?, idClasse = ? WHERE idScolarite = ?',
+      [inscription, pension, nbreTranche, idCycle, idClasse || null, req.params.id]
     )
     const [rows] = await pool.query('SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle WHERE s.idScolarite = ?', [req.params.id])
     res.json(rows[0])
@@ -214,10 +217,10 @@ router.post('/scolarites-with-tranches', async (req, res) => {
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()
-    const { inscription, pension, nbreTranche, idCycle, tranches } = req.body
+    const { inscription, pension, nbreTranche, idCycle, idClasse, tranches } = req.body
     const [scolResult] = await conn.query(
-      'INSERT INTO Scolarite (inscription, pension, nbreTranche, idCycle, description, idFondateur) VALUES (?, ?, ?, ?, ?, ?)',
-      [inscription, pension, nbreTranche, idCycle, '', 1]
+      'INSERT INTO Scolarite (inscription, pension, nbreTranche, idCycle, idClasse, description, idFondateur) VALUES (?, ?, ?, ?, ?, ?, 1)',
+      [inscription, pension, nbreTranche, idCycle || null, idClasse || null, '', 1]
     )
     const idScolarite = scolResult.insertId
     if (tranches && tranches.length > 0) {
@@ -315,15 +318,24 @@ router.put('/modes/:id', async (req, res) => {
 
 router.delete('/modes/:id', async (req, res) => {
   try {
-    await pool.query('UPDATE Mode SET actif = 0 WHERE idMode = ?', [req.params.id])
-    res.json({ message: 'Désactivé' })
-  } catch (err) { res.status(500).json({ error: err.message }) }
+    const [result] = await pool.query('DELETE FROM Mode WHERE idMode = ?', [req.params.id])
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'Mode non trouvé' })
+    res.json({ message: 'Supprimé' })
+  } catch (err) {
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+      return res.status(409).json({ message: 'Ce mode est utilisé par des paiements et ne peut pas être supprimé' })
+    }
+    res.status(500).json({ error: err.message })
+  }
 })
 
 router.get('/paiements', async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT p.*, m.libelle AS mode FROM Paiement p JOIN Mode m ON p.idMode = m.idMode'
+      `SELECT p.*, m.libelle AS mode, el.nom, el.prenom
+       FROM Paiement p
+       JOIN Mode m ON p.idMode = m.idMode
+       LEFT JOIN eleves el ON CAST(el.matricule AS UNSIGNED) = p.matricule`
     )
     res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -331,16 +343,38 @@ router.get('/paiements', async (_req, res) => {
 
 router.post('/paiements', async (req, res) => {
   try {
-    const { matricule, idAca, montant, idMode, datePaie, idPers } = req.body
+    const { matricule, idAca, montant, idMode, datePaie, idPers, tranches } = req.body
+    console.log('POST /paiements body:', { matricule, idAca, montant, idMode, datePaie, idPers, tranches })
+    await pool.query(
+      'INSERT IGNORE INTO Eleve (matricule, nom, prenom, dateNaissance, lieuNaissance, sexe, langue, actif, idVilleNaissance, idAdmin) SELECT CAST(? AS UNSIGNED), nom, prenom, COALESCE(date_naissance, CURDATE()), COALESCE(lieu_naissance, "Non spécifié"), IF(sexe="M",1,2), langue, 1, 1, 1 FROM eleves WHERE CAST(matricule AS UNSIGNED) = ?',
+      [matricule, matricule]
+    )
     const [result] = await pool.query(
       'INSERT INTO Paiement (matricule, idAca, montant, idMode, datePaie, idPers, dateEnregistrer) VALUES (?, ?, ?, ?, ?, ?, NOW())',
       [matricule, idAca, montant, idMode, datePaie || new Date().toISOString().slice(0, 10), idPers]
     )
+    const idPaie = result.insertId
+    if (tranches && tranches.length > 0) {
+      const values = tranches.map((t) => [idPaie, t])
+      await pool.query('INSERT INTO PaiementTranche (idPaie, idTranche) VALUES ?', [values])
+    }
     const [rows] = await pool.query(
       'SELECT p.*, m.libelle AS mode FROM Paiement p JOIN Mode m ON p.idMode = m.idMode WHERE p.idPaie = ?',
-      [result.insertId]
+      [idPaie]
     )
     res.status(201).json(rows[0])
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+router.get('/paiements/:matricule/tranches-payees', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT pt.idTranche FROM PaiementTranche pt
+       JOIN Paiement p ON p.idPaie = pt.idPaie
+       WHERE p.matricule = ?`,
+      [Number(req.params.matricule)]
+    )
+    res.json(rows.map(r => r.idTranche))
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

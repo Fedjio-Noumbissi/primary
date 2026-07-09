@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { studentAPI, classAPI, academicAPI, paymentAPI, uploadAPI, parentAPI } from '../../services/api'
 import { LANGUAGES, SEXE_OPTIONS } from '../../utils/constants'
-import { Cycle, Salle, AnneeAcademique, Scolarite, Tranche, Student } from '../../types'
+import { Cycle, Classe, AnneeAcademique, Scolarite, Tranche, Student } from '../../types'
 import toast from 'react-hot-toast'
 import ReactCrop, { type Crop, makeAspectCrop, centerCrop, type PixelCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
@@ -68,10 +68,10 @@ export default function StudentForm() {
   const [parentMode, setParentMode] = useState<'create' | 'link'>('create')
   const [selectedParent, setSelectedParent] = useState<{ idParent?: number; idPers?: number; nom: string; prenom: string; email?: string; mobile?: string } | null>(null)
 
-  const [enrollment, setEnrollment] = useState({ idSalle: 0, idAcademi: 0, idScolarite: 0 })
+  const [enrollment, setEnrollment] = useState({ idClasse: 0, idAcademi: 0, idScolarite: 0 })
 
   const [cycles, setCycles] = useState<Cycle[]>([])
-  const [salles, setSalles] = useState<Salle[]>([])
+  const [classes, setClasses] = useState<Classe[]>([])
   const [annees, setAnnees] = useState<AnneeAcademique[]>([])
   const [scolarites, setScolarites] = useState<Scolarite[]>([])
   const [autoScolarite, setAutoScolarite] = useState<Scolarite | null>(null)
@@ -88,12 +88,12 @@ export default function StudentForm() {
   useEffect(() => {
     Promise.all([
       classAPI.getCycles(),
-      classAPI.getSalles(),
+      classAPI.getClasses(),
       academicAPI.getAnnees(),
       paymentAPI.getScolarites(),
-    ]).then(([c, s, a, sc]) => {
+    ]).then(([c, cl, a, sc]) => {
       setCycles(c.data)
-      setSalles(s.data)
+      setClasses(cl.data)
       setAnnees(a.data)
       setScolarites(sc.data)
     })
@@ -114,17 +114,15 @@ export default function StudentForm() {
   }, [id])
 
   useEffect(() => {
-    if (!enrollment.idSalle) { setAutoScolarite(null); setAutoTranches([]); return }
-    const salle = salles.find(s => s.idSalle === enrollment.idSalle)
-    if (!salle?.idClasse) return
-    paymentAPI.getScolariteByClasse(salle.idClasse).then(res => {
+    if (!enrollment.idClasse) { setAutoScolarite(null); setAutoTranches([]); return }
+    paymentAPI.getScolariteByClasse(enrollment.idClasse).then(res => {
       setAutoScolarite(res.data.scolarite)
       setAutoTranches(res.data.tranches || [])
       if (res.data.scolarite) {
         setEnrollment(prev => ({ ...prev, idScolarite: res.data.scolarite!.idScolarite }))
       }
     }).catch(() => {})
-  }, [enrollment.idSalle, salles])
+  }, [enrollment.idClasse])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -136,14 +134,6 @@ export default function StudentForm() {
     }
     setForm(newForm)
   }
-
-  const filteredSalles = form.idCycle
-    ? salles.filter(s => {
-        const cls = cycles.find(c => c.idCycle === form.idCycle)
-        if (!cls) return true
-        return true
-      })
-    : salles
 
   const readFile = (file: File) => {
     if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
@@ -219,7 +209,7 @@ export default function StudentForm() {
       if (parentMode === 'link') return !!selectedParent
       return parent.nom && parent.email
     }
-    if (step === 3) return enrollment.idSalle && enrollment.idAcademi
+    if (step === 3) return enrollment.idClasse && enrollment.idAcademi
     return true
   }
 
@@ -250,8 +240,8 @@ export default function StudentForm() {
         matricule: newMatricule,
         parent: parentPayload,
       }
-      if (enrollment.idSalle && enrollment.idAcademi) {
-        baseEnroll.idSalle = enrollment.idSalle
+      if (enrollment.idClasse && enrollment.idAcademi) {
+        baseEnroll.idClasse = enrollment.idClasse
         baseEnroll.idAcademi = enrollment.idAcademi
       }
       if (enrollment.idScolarite) {
@@ -441,12 +431,16 @@ export default function StudentForm() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{isFr ? 'Salle / Classe' : 'Room / Class'} *</label>
-                  <select value={enrollment.idSalle} onChange={ev => setEnrollment(prev => ({ ...prev, idSalle: parseInt(ev.target.value) }))} required
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{isFr ? 'Classe' : 'Class'} *</label>
+                  <select value={enrollment.idClasse} onChange={ev => setEnrollment(prev => ({ ...prev, idClasse: parseInt(ev.target.value) }))} required
                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cameroon-green bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100">
                     <option value="">{t('common.select')}</option>
-                    {filteredSalles.filter(s => s.actif).map(s => (
-                      <option key={s.idSalle} value={s.idSalle}>{s.libelle} — {s.classe}</option>
+                    {cycles.filter(cy => !form.idCycle || cy.idCycle === form.idCycle).map(cy => (
+                      <optgroup key={cy.idCycle} label={cy.libelle}>
+                        {classes.filter(c => c.idCycle === cy.idCycle && !c.isDelete).map(c => (
+                          <option key={c.idClasse} value={c.idClasse}>{c.libelle}</option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
@@ -507,13 +501,13 @@ export default function StudentForm() {
                     <span className="font-medium">{autoScolarite.nbreTranche} tranche(s)</span>
                   </div>
                 </div>
-              ) : enrollment.idSalle ? (
+              ) : enrollment.idClasse ? (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-300">
                   {isFr ? 'Aucun plan tarifaire trouvé pour cette classe' : 'No tuition plan found for this class'}
                 </div>
               ) : (
                 <div className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4 text-sm text-gray-400 italic text-center">
-                  {isFr ? 'Sélectionnez une salle/classe pour voir les frais' : 'Select a room/class to see tuition fees'}
+                  {isFr ? 'Sélectionnez une classe pour voir les frais' : 'Select a class to see tuition fees'}
                 </div>
               )}
             </div>
@@ -591,9 +585,9 @@ export default function StudentForm() {
                   <p>{t('student.nom')}: <span className="font-medium text-gray-900 dark:text-white">{form.nom} {form.prenom}</span></p>
                   <p>{t('student.dateNaissance')}: <span className="font-medium text-gray-900 dark:text-white">{form.dateNaissance}</span></p>
                   <p>{t('student.langue')}: <span className="font-medium text-gray-900 dark:text-white">{form.langue}</span></p>
-                  {enrollment.idSalle > 0 && (
+                  {enrollment.idClasse > 0 && (
                     <p>{isFr ? 'Classe' : 'Class'}: <span className="font-medium text-gray-900 dark:text-white">
-                      {salles.find(s => s.idSalle === enrollment.idSalle)?.libelle}
+                      {classes.find(c => c.idClasse === enrollment.idClasse)?.libelle}
                     </span></p>
                   )}
                   {parentMode === 'link' && selectedParent && (

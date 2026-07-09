@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import { messageAPI, parentAPI, teacherAPI } from '../../services/api'
-import { Message, User, Parent, Teacher } from '../../types'
+import { messageAPI, contactAPI } from '../../services/api'
+import { Message } from '../../types'
 import LoadingSkeleton from '../../components/LoadingSkeleton'
 import DataTable from '../../components/DataTable'
 import Modal from '../../components/Modal'
@@ -27,9 +27,11 @@ export default function MessagePage() {
   const [loading, setLoading] = useState(true)
   const [composeOpen, setComposeOpen] = useState(false)
   const [recipientType, setRecipientType] = useState<RecipientType>('specific_parent')
-  const [parents, setParents] = useState<Parent[]>([])
-  const [teachers, setTeachers] = useState<Teacher[]>([])
+  const [contacts, setContacts] = useState<{ idPers: number; nom: string; prenom: string; role: string }[]>([])
   const [form, setForm] = useState({ idExp_Pers: user?.idPers || 1, idParent: 0, objet: '', information: '' })
+
+  const parents = contacts.filter(c => c.role === 'parent')
+  const teachers = contacts.filter(c => c.role === 'teacher')
 
   const load = () => {
     setLoading(true)
@@ -43,12 +45,10 @@ export default function MessagePage() {
     }
     Promise.all([
       msgPromise,
-      parentAPI.getAll(),
-      teacherAPI.getAll(),
-    ]).then(([msgRes, parentRes, teacherRes]) => {
+      contactAPI.getAll(),
+    ]).then(([msgRes, contactRes]) => {
       setMessages(msgRes.data)
-      setParents(parentRes.data)
-      setTeachers(teacherRes.data)
+      setContacts(contactRes.data)
       setLoading(false)
     }).catch(() => setLoading(false))
   }
@@ -60,16 +60,14 @@ export default function MessagePage() {
     { key: 'objet', label: t('message.objet'), render: (m: Message) => <span className="font-medium">{m.objet}</span> },
     {
       key: 'idExp_Pers', label: t('message.from'), render: (m: Message) => {
-        const all = [...parents.map((p) => ({ idPers: p.idPers, nom: p.nom, prenom: p.prenom })), ...teachers.map((t) => ({ idPers: t.idPers, nom: t.nom, prenom: t.prenom }))]
-        const p = all.find((u) => u.idPers === m.idExp_Pers)
+        const p = contacts.find((u) => u.idPers === m.idExp_Pers)
         return p ? `${p.nom} ${p.prenom}` : '-'
       }
     },
     {
       key: 'idParent', label: 'Destinataire', render: (m: Message) => {
         if (m.receiverLabel) return m.receiverLabel
-        const all = [...parents.map((p) => ({ idPers: p.idPers, nom: p.nom, prenom: p.prenom })), ...teachers.map((t) => ({ idPers: t.idPers, nom: t.nom, prenom: t.prenom }))]
-        const p = all.find((u) => u.idPers === m.idParent)
+        const p = contacts.find((u) => u.idPers === m.idParent)
         return p ? `${p.nom} ${p.prenom}` : '-'
       }
     },

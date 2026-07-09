@@ -36,8 +36,12 @@ router.post('/discipline', async (req, res) => {
 
     const [discResult] = await pool.query(
       'INSERT INTO Discipline (libelle, points) VALUES (?, ?)',
-      [libelle, points]
+      [libelle, points || 0]
     )
+    if (!idAca) {
+      const [activeYear] = await pool.query('SELECT idAnnee FROM AnneeAcademique WHERE actif = 1 LIMIT 1')
+      req.body.idAca = activeYear[0]?.idAnnee || null
+    }
     const [rapResult] = await pool.query(
       'INSERT INTO Rapport (matricule, idAca, commentaire, event_date, idPers, idDiscipline) VALUES (?, ?, ?, ?, ?, ?)',
       [matricule, resolvedIdAca || 1, commentaire || '', event_date || new Date().toISOString().slice(0, 10), idPers || 1, discResult.insertId]

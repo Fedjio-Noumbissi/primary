@@ -60,6 +60,7 @@ export const classAPI = {
 export const academicAPI = {
   getAnnees: () => api.get<AnneeAcademique[]>('/annees'),
   createAnnee: (data: Partial<AnneeAcademique>) => api.post<AnneeAcademique>('/annees', data),
+  deleteAnnee: (id: number) => api.delete(`/annees/${id}`),
   setActiveAnnee: (id: number) => api.patch<AnneeAcademique>(`/annees/${id}/set-active`),
   closeTrimestre: (id: number) => api.patch<Trimestre>(`/trimestres/${id}/close`),
   getTrimestres: (idAca?: number) => api.get<Trimestre[]>('/trimestres', { params: { idAca } }),
@@ -110,12 +111,14 @@ export const paymentAPI = {
   updateMode: (id: number, data: Partial<Mode>) => api.put<Mode>(`/modes/${id}`, data),
   deleteMode: (id: number) => api.delete(`/modes/${id}`),
   getPaiements: () => api.get<Paiement[]>('/paiements'),
-  createPaiement: (data: Partial<Paiement>) => api.post<Paiement>('/paiements', data),
+  createPaiement: (data: Partial<Paiement> & { tranches?: number[] }) => api.post<Paiement>('/paiements', data),
+  getPaidTranches: (matricule: number) => api.get<number[]>(`/paiements/${matricule}/tranches-payees`),
   createScolariteWithTranches: (data: {
     inscription: number;
     pension: number;
     nbreTranche: number;
-    idCycle: number;
+    idCycle?: number;
+    idClasse?: number;
     tranches: { libelle: string; montant: number; date_limite: string }[];
   }) => api.post('/scolarites-with-tranches', data),
 }
@@ -147,6 +150,10 @@ export const parentAPI = {
   search: (q: string) => api.get<Parent[]>('/parents/search', { params: { q } }),
 }
 
+export const contactAPI = {
+  getAll: () => api.get<{ idPers: number; nom: string; prenom: string; role: string }[]>('/contacts'),
+}
+
 export const studentAPI = {
   getAll: () => api.get<Student[]>('/students'),
   getByClass: (idClasse: number) => api.get<Student[]>('/students', { params: { idClasse } }),
@@ -159,7 +166,7 @@ export const studentAPI = {
   batchChangeClass: (matricules: number[], idSalle: number) => api.patch<{ updated: number }>('/students/batch/class', { matricules, idSalle }),
   getGrades: (id: number) => api.get<Evaluation[]>(`/students/${id}/grades`),
   getPayments: (id: number) => api.get<Paiement[]>(`/students/${id}/payments`),
-  enroll: (data: { matricule: number; idSalle?: number; idAcademi?: number; idScolarite?: number; parent?: { nom: string; prenom: string; email: string; password: string; mobile: string } }) => api.post('/students/enroll', data),
+  enroll: (data: { matricule: number; idClasse?: number; idSalle?: number; idAcademi?: number; idScolarite?: number; parent?: { nom: string; prenom: string; email: string; password: string; mobile: string } }) => api.post('/students/enroll', data),
 }
 
 export const teacherAPI = {
@@ -173,11 +180,6 @@ export const teacherAPI = {
 
 export const searchAPI = {
   global: (q: string) => api.get<SearchResult>('/search', { params: { q } }),
-}
-
-export const auditAPI = {
-  getLogs: (params?: { userId?: number; action?: string; entity?: string; page?: number; limit?: number }) =>
-    api.get<{ data: AuditLog[]; total: number; page: number; limit: number }>('/audit-logs', { params }),
 }
 
 export const uploadAPI = {

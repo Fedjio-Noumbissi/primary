@@ -4,8 +4,9 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import 'dotenv/config'
 
-import { auditMiddleware } from './middleware/audit.js'
-import auditRoutes from './routes/audit.js'
+import pool from './db.js'
+
+
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
 import studentRoutes from './routes/students.js'
@@ -24,6 +25,7 @@ import searchRoutes from './routes/search.js'
 import uploadRoutes from './routes/upload.js'
 import disciplineRoutes from './routes/discipline.js'
 import schoolRoutes from './routes/school.js'
+import contactRoutes from './routes/contacts.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -33,11 +35,10 @@ const PORT = process.env.PORT || 3001
 app.use(cors())
 app.use(express.json())
 
+pool.query('ALTER TABLE Scolarite ADD COLUMN idClasse INT NULL').catch(() => {})
+pool.query('CREATE TABLE IF NOT EXISTS PaiementTranche (id INTEGER PRIMARY KEY AUTO_INCREMENT, idPaie INTEGER NOT NULL, idTranche INTEGER NOT NULL, UNIQUE KEY uq_paie_tranche (idPaie, idTranche))').catch(() => {})
 app.use('/api/auth', authRoutes)
 
-app.use('/api/audit-logs', auditRoutes)
-
-app.use(auditMiddleware)
 
 app.use('/api/users', userRoutes)
 app.use('/api/students', studentRoutes)
@@ -57,6 +58,7 @@ app.use('/api/search', searchRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api', disciplineRoutes)
 app.use('/api', schoolRoutes)
+app.use('/api', contactRoutes)
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 
@@ -70,4 +72,7 @@ app.get('*', (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
+}).on('error', (err) => {
+  console.error('Failed to start server:', err.message)
+  process.exit(1)
 })
