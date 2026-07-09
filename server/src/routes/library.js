@@ -21,7 +21,7 @@ router.post('/livres', async (req, res) => {
   try {
     const { titre, auteurs, prix, idSpecialite, edition, totalCopie } = req.body
     const [result] = await pool.query(
-      'INSERT INTO Livres (titre, auteurs, prix, idSpecialite, edition, totalCopie) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO Livres (titre, auteurs, prix, idSpecialite, edition, totalCopie, idAdmin) VALUES (?, ?, ?, ?, ?, ?, 1)',
       [titre, auteurs || '', prix || 0, idSpecialite, edition || '', totalCopie || 1]
     )
     const [rows] = await pool.query('SELECT * FROM Livres WHERE idLivre = ?', [result.insertId])

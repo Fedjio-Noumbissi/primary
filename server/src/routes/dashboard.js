@@ -6,7 +6,7 @@ const router = Router()
 router.get('/stats', async (_req, res) => {
   try {
     const [[{ totalStudents }]] = await pool.query("SELECT COUNT(*) AS totalStudents FROM Eleve WHERE actif = 1 AND isDelete = 0")
-    const [[{ totalTeachers }]] = await pool.query("SELECT COUNT(*) AS totalTeachers FROM Enseignant WHERE Actif = 1 AND isDelete = 0")
+    const [[{ totalTeachers }]] = await pool.query("SELECT COUNT(*) AS totalTeachers FROM enseignants WHERE actif = 1")
     const [[{ totalPayments }]] = await pool.query('SELECT COALESCE(SUM(montant),0) AS totalPayments FROM Paiement')
     const [[{ pendingFees }]] = await pool.query("SELECT COALESCE(SUM(montant),0) AS pendingFees FROM Tranches WHERE actif = 1")
     const [[{ classesCount }]] = await pool.query("SELECT COUNT(*) AS classesCount FROM Classe WHERE isDelete = 0")
@@ -46,7 +46,14 @@ router.get('/parent/:idPers', async (req, res) => {
   try {
     const { idPers } = req.params
     const [children] = await pool.query(
-      'SELECT e.* FROM Parents p JOIN eleves e ON CAST(p.matricule AS CHAR) = CAST(e.matricule AS CHAR) WHERE p.idPers = ?',
+      `       SELECT e.*, s.idClasse AS idClasse, cl.libelle AS classe, s.libelle AS salle
+       FROM Parents p
+       JOIN eleves e ON CAST(p.matricule AS CHAR) = CAST(e.matricule AS CHAR)
+       LEFT JOIN Frequente f ON f.matricule = CAST(e.matricule AS UNSIGNED)
+         AND f.idFrequente = (SELECT MAX(f2.idFrequente) FROM Frequente f2 WHERE f2.matricule = CAST(e.matricule AS UNSIGNED))
+       LEFT JOIN Salle s ON s.idSalle = f.idSalle
+       LEFT JOIN Classe cl ON cl.idClasse = s.idClasse
+       WHERE p.idPers = ?`,
       [idPers]
     )
     res.json({ children })
@@ -56,7 +63,7 @@ router.get('/parent/:idPers', async (req, res) => {
 router.get('/recent-payments', async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT p.*, m.libelle AS mode FROM Paiement p JOIN Mode m ON p.idMode = m.idMode ORDER BY p.datePaie DESC LIMIT 5"
+      "SELECT p.idPaie, p.matricule, p.idAca, p.montant, p.idMode, p.idPers, p.date AS datePaie, p.trancheCouverte, p.justificatifUrl, p.actif, p.createdAt, p.updatedAt, m.libelle AS mode FROM Paiement p JOIN Mode m ON p.idMode = m.idMode ORDER BY p.date DESC LIMIT 5"
     )
     res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -99,7 +106,7 @@ router.get('/students-per-class', async (_req, res) => {
 router.get('/payment-trend', async (_req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT DATE_FORMAT(datePaie, '%Y-%m') AS month, SUM(montant) AS total
+      SELECT DATE_FORMAT(date, '%Y-%m') AS month, SUM(montant) AS total
       FROM Paiement
       GROUP BY month ORDER BY month
     `)

@@ -35,7 +35,39 @@ const PORT = process.env.PORT || 3001
 app.use(cors())
 app.use(express.json())
 
-pool.query('ALTER TABLE Scolarite ADD COLUMN idClasse INT NULL').catch(() => {})
+;(async function migrate() {
+  const alters = [
+    'ALTER TABLE Scolarite ADD COLUMN idClasse INT NULL',
+    'ALTER TABLE Scolarite ADD COLUMN inscription DOUBLE DEFAULT 0',
+    'ALTER TABLE Scolarite ADD COLUMN nbreTranche INT DEFAULT 3',
+    'ALTER TABLE Scolarite ADD COLUMN description VARCHAR(255) NULL',
+    'ALTER TABLE Scolarite ADD COLUMN idFondateur INT NULL',
+    'ALTER TABLE Classe ADD COLUMN isDelete TINYINT DEFAULT 0',
+    'ALTER TABLE Classe ADD COLUMN titulaire INT NULL',
+    'ALTER TABLE Classe ADD COLUMN specialite VARCHAR(255) NULL',
+    'ALTER TABLE Classe ADD COLUMN idAdmin INT NULL',
+    'ALTER TABLE Cycle ADD COLUMN isDelete TINYINT DEFAULT 0',
+    'ALTER TABLE Cycle ADD COLUMN description VARCHAR(255) NULL',
+    'ALTER TABLE Cycle ADD COLUMN idAdmin INT NULL',
+    'ALTER TABLE Salle ADD COLUMN actif TINYINT DEFAULT 1',
+    'ALTER TABLE Salle ADD COLUMN capacite INT NULL',
+    'ALTER TABLE Salle ADD COLUMN idAdmin INT NULL',
+    'ALTER TABLE Cours ADD COLUMN idEnseignant INT NULL',
+    'ALTER TABLE Cours ADD COLUMN actif TINYINT DEFAULT 1',
+    'ALTER TABLE Cours ADD COLUMN isDelete TINYINT DEFAULT 0',
+    'ALTER TABLE Cours ADD COLUMN description VARCHAR(255) NULL',
+    'ALTER TABLE Frequente MODIFY COLUMN matricule VARCHAR(255)',
+    'ALTER TABLE Tranches ADD COLUMN actif TINYINT DEFAULT 1',
+    'ALTER TABLE Tranches ADD COLUMN libelle VARCHAR(255) NULL',
+    'ALTER TABLE Tranches ADD COLUMN delai_mois VARCHAR(20) NULL',
+    'ALTER TABLE Tranches ADD COLUMN delai_jour VARCHAR(20) NULL',
+    'ALTER TABLE Tranches ADD COLUMN date_limite DATE NULL',
+    'ALTER TABLE Tranches ADD COLUMN idFondateur INT NULL',
+  ]
+  for (const sql of alters) {
+    try { await pool.query(sql) } catch (e) { /* column may already exist */ }
+  }
+}())
 pool.query('CREATE TABLE IF NOT EXISTS PaiementTranche (id INTEGER PRIMARY KEY AUTO_INCREMENT, idPaie INTEGER NOT NULL, idTranche INTEGER NOT NULL, UNIQUE KEY uq_paie_tranche (idPaie, idTranche))').catch(() => {})
 app.use('/api/auth', authRoutes)
 

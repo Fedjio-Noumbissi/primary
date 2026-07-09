@@ -9,9 +9,13 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body
     const [rows] = await pool.query(
-      `SELECT id, email, password_hash, role, is_active, nom, prenom, telephone
-       FROM users
-       WHERE email = ? AND is_active = 1`,
+      `SELECT u.id, u.email, u.password_hash, u.role, u.is_active, u.nom, u.prenom, u.telephone,
+              COALESCE(
+                (SELECT idPers FROM Personne WHERE CAST(email AS CHAR) = CAST(u.email AS CHAR) LIMIT 1),
+                (SELECT id_pers FROM personnes WHERE user_id = u.id LIMIT 1)
+              ) AS personne_id
+       FROM users u
+       WHERE u.email = ? AND u.is_active = 1`,
       [email]
     )
     if (rows.length === 0) {
@@ -27,7 +31,7 @@ router.post('/login', async (req, res) => {
     const typePersonne = roleMap[user.role] || 1
 
     const token = jwt.sign(
-      { id: user.id, idPers: user.id, typePersonne },
+      { id: user.id, idPers: user.personne_id || user.id, typePersonne },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     )
@@ -36,7 +40,7 @@ router.post('/login', async (req, res) => {
     pool.query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [user.id]).catch(() => {})
 
     res.json({
-      idPers: user.id,
+      idPers: user.personne_id || user.id,
       nom: user.nom || '',
       prenom: user.prenom || '',
       email: user.email,

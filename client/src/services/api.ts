@@ -151,7 +151,7 @@ export const parentAPI = {
 }
 
 export const contactAPI = {
-  getAll: () => api.get<{ idPers: number; nom: string; prenom: string; role: string }[]>('/contacts'),
+  getAll: () => api.get<{ idParent?: number | null; idPers: number; nom: string; prenom: string; role: string }[]>('/contacts'),
 }
 
 export const studentAPI = {

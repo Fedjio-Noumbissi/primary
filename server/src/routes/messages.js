@@ -39,7 +39,21 @@ router.post('/messages/broadcast', async (req, res) => {
 
     if (target === 'parents' || target === 'all') {
       const [parents] = await pool.query(
-        'SELECT p.idParent, p.idPers, pr.nom, pr.prenom FROM Parents p JOIN personnes pr ON pr.id_pers = p.idPers WHERE p.isDelete = 0'
+        `SELECT p.idParent, p.idPers,
+                COALESCE(pp.nom COLLATE utf8mb4_unicode_ci, pr.nom) AS nom,
+                COALESCE(pp.prenom COLLATE utf8mb4_unicode_ci, pr.prenom) AS prenom
+         FROM Parents p
+         LEFT JOIN personnes pr ON p.idPers = pr.id_pers
+         LEFT JOIN Personne pp ON p.idPers = pp.idPers
+         WHERE p.isDelete = 0
+         UNION
+         SELECT NULL AS idParent, pp.idPers,
+                pp.nom COLLATE utf8mb4_unicode_ci AS nom,
+                pp.prenom COLLATE utf8mb4_unicode_ci AS prenom
+         FROM Personne pp
+         WHERE pp.typePersonne = 3
+           AND pp.email IS NOT NULL AND pp.email != ''
+           AND NOT EXISTS (SELECT 1 FROM Parents WHERE idPers = pp.idPers)`
       )
       for (const p of parents) {
         values.push([idExp_Pers, p.idParent, objet, information, idAca, 'parent', p.idPers, `${p.nom} ${p.prenom}`])

@@ -51,19 +51,19 @@ export default function LibraryPage() {
 
       {loading ? <LoadingSkeleton /> : (
         <div className="bg-white rounded-xl border p-5">
-          <DataTable columns={columns} data={livres} />
+          <DataTable columns={columns} data={livres} rowId={(r) => r.idLivre} />
         </div>
       )}
 
       <Modal open={modal} onClose={() => setModal(false)} title={t('library.add')}>
-        <form onSubmit={async (e) => { e.preventDefault(); await libraryAPI.createLivre(form); toast.success(t('toast.saved')); setModal(false); setForm({ titre: '', auteurs: '', prix: 0, idSpecialite: 0, edition: '', totalCopie: 1 }); load() }} className="space-y-4">
+        <form onSubmit={async (e) => { e.preventDefault(); if (!form.idSpecialite) { toast.error(t('library.specialite') + ' requis'); return }; await libraryAPI.createLivre({ ...form, idSpecialite: Number(form.idSpecialite) }); toast.success(t('toast.saved')); setModal(false); setForm({ titre: '', auteurs: '', prix: 0, idSpecialite: 0, edition: '', totalCopie: 1 }); load() }} className="space-y-4">
           <div><label className="block text-sm font-medium mb-1">{t('library.titre')}</label><input type="text" value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} required className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
           <div><label className="block text-sm font-medium mb-1">{t('library.auteurs')}</label><input type="text" value={form.auteurs} onChange={(e) => setForm({ ...form, auteurs: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium mb-1">{t('library.prix')}</label><input type="number" min={0} value={form.prix || ''} onChange={(e) => setForm({ ...form, prix: parseFloat(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
             <div><label className="block text-sm font-medium mb-1">{t('library.copies')}</label><input type="number" min={1} value={form.totalCopie} onChange={(e) => setForm({ ...form, totalCopie: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
           </div>
-          <div><label className="block text-sm font-medium mb-1">{t('library.specialite')}</label><select value={form.idSpecialite} onChange={(e) => setForm({ ...form, idSpecialite: parseInt(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-sm">{specialites.map((s) => <option key={s.idSpecialite} value={s.idSpecialite}>{s.libelle}</option>)}</select></div>
+          <div><label className="block text-sm font-medium mb-1">{t('library.specialite')}</label><select value={form.idSpecialite} onChange={(e) => setForm({ ...form, idSpecialite: parseInt(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm"><option value="">{t('common.select')}</option>{specialites.map((s) => <option key={s.idSpecialite} value={s.idSpecialite}>{s.libelle}</option>)}</select></div>
           <div><label className="block text-sm font-medium mb-1">{t('library.edition')}</label><input type="text" value={form.edition} onChange={(e) => setForm({ ...form, edition: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
           <button type="submit" className="w-full py-2 bg-cameroon-green text-white rounded-lg text-sm font-medium">{t('common.save')}</button>
         </form>

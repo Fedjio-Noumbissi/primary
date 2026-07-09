@@ -11,7 +11,7 @@ function formatCurrency(amount) {
 router.get('/paiements/:id/receipt', async (req, res) => {
   try {
     const [payments] = await pool.query(
-      `SELECT p.*, m.libelle AS mode, el.nom, el.prenom, cl.libelle AS classe, cl.idClasse AS idClasse
+      `SELECT p.idPaie, p.matricule, p.idAca, p.montant, p.idMode, p.idPers, p.date AS datePaie, p.trancheCouverte, p.justificatifUrl, p.actif, p.createdAt, p.updatedAt, m.libelle AS mode, el.nom, el.prenom, cl.libelle AS classe, cl.idClasse AS idClasse
        FROM Paiement p
        JOIN Mode m ON p.idMode = m.idMode
        JOIN eleves el ON CAST(el.matricule AS UNSIGNED) = p.matricule
@@ -163,12 +163,12 @@ router.post('/scolarites', async (req, res) => {
 router.get('/scolarite/by-classe/:idClasse', async (req, res) => {
   try {
     const { idClasse } = req.params
-    const [scolarites] = await pool.query('SELECT * FROM Scolarite WHERE idClasse = ?', [Number(idClasse)])
+    const [scolarites] = await pool.query('SELECT idScolarite, pension, montantInscription AS inscription, idCycle, idClasse, idFondateur, createdAt, updatedAt FROM Scolarite WHERE idClasse = ?', [Number(idClasse)])
     let scolarite = scolarites.length ? scolarites[0] : null
     if (!scolarite) {
       const [classes] = await pool.query('SELECT idCycle FROM Classe WHERE idClasse = ?', [Number(idClasse)])
       if (!classes.length) return res.status(404).json({ message: 'Classe not found' })
-      const [cycleScolarites] = await pool.query('SELECT * FROM Scolarite WHERE idCycle = ? AND idClasse IS NULL', [classes[0].idCycle])
+      const [cycleScolarites] = await pool.query('SELECT idScolarite, pension, montantInscription AS inscription, idCycle, idClasse, idFondateur, createdAt, updatedAt FROM Scolarite WHERE idCycle = ? AND idClasse IS NULL', [classes[0].idCycle])
       scolarite = cycleScolarites.length ? cycleScolarites[0] : null
     }
     let tranches = []
@@ -332,7 +332,7 @@ router.delete('/modes/:id', async (req, res) => {
 router.get('/paiements', async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT p.*, m.libelle AS mode, el.nom, el.prenom
+      `SELECT p.idPaie, p.matricule, p.idAca, p.montant, p.idMode, p.idPers, p.date AS datePaie, p.trancheCouverte, p.justificatifUrl, p.actif, p.createdAt, p.updatedAt, m.libelle AS mode, el.nom, el.prenom
        FROM Paiement p
        JOIN Mode m ON p.idMode = m.idMode
        LEFT JOIN eleves el ON CAST(el.matricule AS UNSIGNED) = p.matricule`
@@ -346,8 +346,8 @@ router.post('/paiements', async (req, res) => {
     const { matricule, idAca, montant, idMode, datePaie, idPers, tranches } = req.body
     console.log('POST /paiements body:', { matricule, idAca, montant, idMode, datePaie, idPers, tranches })
     await pool.query(
-      'INSERT IGNORE INTO Eleve (matricule, nom, prenom, dateNaissance, lieuNaissance, sexe, langue, actif, idVilleNaissance, idAdmin) SELECT CAST(? AS UNSIGNED), nom, prenom, COALESCE(date_naissance, CURDATE()), COALESCE(lieu_naissance, "Non spécifié"), IF(sexe="M",1,2), langue, 1, 1, 1 FROM eleves WHERE CAST(matricule AS UNSIGNED) = ?',
-      [matricule, matricule]
+      'INSERT INTO Paiement (matricule, idAca, montant, idMode, date, idPers) VALUES (?, ?, ?, ?, ?, ?)',
+      [matricule, idAca, montant, idMode, datePaie || new Date().toISOString().slice(0, 10), idPers]
     )
     const [result] = await pool.query(
       'INSERT INTO Paiement (matricule, idAca, montant, idMode, datePaie, idPers, dateEnregistrer) VALUES (?, ?, ?, ?, ?, ?, NOW())',
@@ -359,7 +359,7 @@ router.post('/paiements', async (req, res) => {
       await pool.query('INSERT INTO PaiementTranche (idPaie, idTranche) VALUES ?', [values])
     }
     const [rows] = await pool.query(
-      'SELECT p.*, m.libelle AS mode FROM Paiement p JOIN Mode m ON p.idMode = m.idMode WHERE p.idPaie = ?',
+      'SELECT p.idPaie, p.matricule, p.idAca, p.montant, p.idMode, p.idPers, p.date AS datePaie, p.trancheCouverte, p.justificatifUrl, p.actif, p.createdAt, p.updatedAt, m.libelle AS mode FROM Paiement p JOIN Mode m ON p.idMode = m.idMode WHERE p.idPaie = ?',
       [idPaie]
     )
     res.status(201).json(rows[0])

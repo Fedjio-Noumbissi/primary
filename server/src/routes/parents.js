@@ -6,7 +6,28 @@ const router = Router()
 router.get('/parents', async (_req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT p.idParent, p.idPers, p.matricule, pr.nom, pr.prenom, u.email, pr.mobile FROM Parents p JOIN personnes pr ON p.idPers = pr.id_pers LEFT JOIN users u ON u.id = pr.user_id WHERE p.isDelete = 0"
+      `SELECT p.idParent, p.idPers, p.matricule,
+              COALESCE(pp.nom COLLATE utf8mb4_unicode_ci, pr.nom) AS nom,
+              COALESCE(pp.prenom COLLATE utf8mb4_unicode_ci, pr.prenom) AS prenom,
+              COALESCE(
+                (SELECT email FROM users WHERE CAST(email AS CHAR) = CAST(pp.email AS CHAR) LIMIT 1),
+                (SELECT email FROM users WHERE id = pr.user_id LIMIT 1)
+              ) AS email,
+              COALESCE(pp.telephone1 COLLATE utf8mb4_unicode_ci, pr.mobile) AS mobile
+       FROM Parents p
+       LEFT JOIN personnes pr ON p.idPers = pr.id_pers
+       LEFT JOIN Personne pp ON p.idPers = pp.idPers
+       WHERE p.isDelete = 0
+       UNION
+       SELECT NULL AS idParent, pp.idPers, NULL AS matricule,
+              pp.nom COLLATE utf8mb4_unicode_ci AS nom,
+              pp.prenom COLLATE utf8mb4_unicode_ci AS prenom,
+              (SELECT email FROM users WHERE CAST(email AS CHAR) = CAST(pp.email AS CHAR) LIMIT 1) AS email,
+              pp.telephone1 COLLATE utf8mb4_unicode_ci AS mobile
+       FROM Personne pp
+       WHERE pp.typePersonne = 3
+         AND pp.email IS NOT NULL AND pp.email != ''
+         AND NOT EXISTS (SELECT 1 FROM Parents WHERE idPers = pp.idPers)`
     )
     const mapped = rows.map(r => ({ ...r, actif: true }))
     res.json(mapped)
@@ -19,12 +40,19 @@ router.get('/parents/search', async (req, res) => {
     if (!q || q.length < 1) return res.json([])
     const pattern = `%${q}%`
     const [rows] = await pool.query(
-      `SELECT p.idParent, p.idPers, p.matricule, pr.nom, pr.prenom, u.email, pr.mobile
+      `SELECT p.idParent, p.idPers, p.matricule,
+              COALESCE(pp.nom COLLATE utf8mb4_unicode_ci, pr.nom) AS nom,
+              COALESCE(pp.prenom COLLATE utf8mb4_unicode_ci, pr.prenom) AS prenom,
+              COALESCE(
+                (SELECT email FROM users WHERE CAST(email AS CHAR) = CAST(pp.email AS CHAR) LIMIT 1),
+                (SELECT email FROM users WHERE id = pr.user_id LIMIT 1)
+              ) AS email,
+              COALESCE(pp.telephone1 COLLATE utf8mb4_unicode_ci, pr.mobile) AS mobile
        FROM Parents p
-       JOIN personnes pr ON p.idPers = pr.id_pers
-       LEFT JOIN users u ON u.id = pr.user_id
+       LEFT JOIN personnes pr ON p.idPers = pr.id_pers
+       LEFT JOIN Personne pp ON p.idPers = pp.idPers
        WHERE p.isDelete = 0
-         AND (pr.nom LIKE ? OR pr.prenom LIKE ? OR pr.mobile LIKE ?)
+         AND (COALESCE(pp.nom COLLATE utf8mb4_unicode_ci, pr.nom) LIKE ? OR COALESCE(pp.prenom COLLATE utf8mb4_unicode_ci, pr.prenom) LIKE ? OR COALESCE(pp.telephone1 COLLATE utf8mb4_unicode_ci, pr.mobile) LIKE ?)
        LIMIT 8`,
       [pattern, pattern, pattern]
     )

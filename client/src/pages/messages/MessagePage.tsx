@@ -27,7 +27,7 @@ export default function MessagePage() {
   const [loading, setLoading] = useState(true)
   const [composeOpen, setComposeOpen] = useState(false)
   const [recipientType, setRecipientType] = useState<RecipientType>('specific_parent')
-  const [contacts, setContacts] = useState<{ idPers: number; nom: string; prenom: string; role: string }[]>([])
+  const [contacts, setContacts] = useState<{ idParent?: number | null; idPers: number; nom: string; prenom: string; role: string }[]>([])
   const [form, setForm] = useState({ idExp_Pers: user?.idPers || 1, idParent: 0, objet: '', information: '' })
 
   const parents = contacts.filter(c => c.role === 'parent')
@@ -90,6 +90,7 @@ export default function MessagePage() {
         const recipient = recipientsList.find((r) => r.idPers === form.idParent)
         await messageAPI.send({
           ...form,
+          idParent: recipient?.idParent ?? 0,
           receiverRole: recipientType === 'specific_parent' ? 'parent' : 'teacher',
           receiverId: form.idParent,
           receiverLabel: recipient ? `${recipient.nom} ${recipient.prenom}` : undefined,
@@ -105,7 +106,7 @@ export default function MessagePage() {
   }
 
   const recipientsList = recipientType === 'specific_parent'
-    ? parents
+    ? parents.filter(r => r.idParent != null)
     : recipientType === 'specific_teacher'
       ? teachers
       : []

@@ -38,7 +38,7 @@ export default function EnrollmentForm() {
     e.preventDefault()
     try {
       const parentPayload = parentMode === 'link' && selectedParent
-        ? { nom: selectedParent.nom, prenom: selectedParent.prenom, email: selectedParent.email || '', password: '', mobile: selectedParent.mobile || '' }
+        ? { idPers: selectedParent.idPers, nom: selectedParent.nom, prenom: selectedParent.prenom, email: selectedParent.email || '', password: '', mobile: selectedParent.mobile || '' }
         : parentMode === 'create' && parent.email
         ? parent
         : undefined
