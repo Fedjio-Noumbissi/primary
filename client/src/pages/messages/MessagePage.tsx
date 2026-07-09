@@ -90,7 +90,7 @@ export default function MessagePage() {
         const recipient = recipientsList.find((r) => r.idPers === form.idParent)
         await messageAPI.send({
           ...form,
-          idParent: recipient?.idParent ?? 0,
+          idParent: recipient?.idParent,
           receiverRole: recipientType === 'specific_parent' ? 'parent' : 'teacher',
           receiverId: form.idParent,
           receiverLabel: recipient ? `${recipient.nom} ${recipient.prenom}` : undefined,

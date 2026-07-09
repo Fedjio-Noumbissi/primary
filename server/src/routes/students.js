@@ -15,8 +15,7 @@ router.get('/', authenticate, async (req, res) => {
       params.push(Number(req.query.idClasse))
     }
     const [rows] = await pool.query(`
-      SELECT e.*, cl.libelle AS classe, s.libelle AS salle, cy.libelle AS cycle,
-        sc.idScolarite, sc.montantInscription, sc.pension
+      SELECT e.*, cl.libelle AS classe, s.libelle AS salle, cy.libelle AS cycle
       FROM eleves e
       LEFT JOIN Frequente f ON f.matricule = CAST(e.matricule AS UNSIGNED)
         AND f.idFrequente = (
@@ -25,7 +24,6 @@ router.get('/', authenticate, async (req, res) => {
       LEFT JOIN Salle s ON s.idSalle = f.idSalle
       LEFT JOIN Classe cl ON cl.idClasse = s.idClasse
       LEFT JOIN Cycle cy ON cy.idCycle = e.idCycle
-      LEFT JOIN Scolarite sc ON sc.idScolarite = f.idScolarite
       ${whereClause}
     `, params)
     const mapped = rows.map((r) => ({
@@ -57,11 +55,8 @@ router.get('/', authenticate, async (req, res) => {
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT e.*, sc.idScolarite, sc.montantInscription AS inscription, sc.pension
+      SELECT e.*
       FROM eleves e
-      LEFT JOIN Frequente f ON f.matricule = CAST(e.matricule AS UNSIGNED)
-        AND f.idFrequente = (SELECT MAX(f2.idFrequente) FROM Frequente f2 WHERE f2.matricule = CAST(e.matricule AS UNSIGNED))
-      LEFT JOIN Scolarite sc ON sc.idScolarite = f.idScolarite
       WHERE e.matricule = ?
     `, [req.params.id])
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' })

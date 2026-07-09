@@ -140,9 +140,8 @@ router.get('/paiements/:id/receipt', async (req, res) => {
 
 router.get('/scolarites', async (_req, res) => {
   try {
-    await pool.query('ALTER TABLE Scolarite ADD COLUMN idClasse INT NULL').catch(() => {})
     const [rows] = await pool.query(
-      'SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle'
+      'SELECT s.idScolarite, s.pension, s.nbreTranche, s.idCycle, s.idClasse, s.description, s.montantInscription AS inscription, s.createdAt, s.updatedAt, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle'
     )
     res.json(rows)
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -186,7 +185,7 @@ router.put('/scolarite/:idScolarite', async (req, res) => {
     const { idScolarite } = req.params
     const { inscription, pension, nbreTranche, idClasse, description } = req.body
     await pool.query(
-      'UPDATE Scolarite SET inscription = ?, pension = ?, nbreTranche = ?, idClasse = ?, description = ? WHERE idScolarite = ?',
+      'UPDATE Scolarite SET montantInscription = ?, pension = ?, nbreTranche = ?, idClasse = ?, description = ? WHERE idScolarite = ?',
       [inscription, pension, nbreTranche || 3, idClasse || null, description || '', Number(idScolarite)]
     )
     const [rows] = await pool.query('SELECT * FROM Scolarite WHERE idScolarite = ?', [Number(idScolarite)])
@@ -198,7 +197,7 @@ router.put('/scolarites/:id', async (req, res) => {
   try {
     const { inscription, pension, nbreTranche, idCycle, idClasse } = req.body
     await pool.query(
-      'UPDATE Scolarite SET inscription = ?, pension = ?, nbreTranche = ?, idCycle = ?, idClasse = ? WHERE idScolarite = ?',
+      'UPDATE Scolarite SET montantInscription = ?, pension = ?, nbreTranche = ?, idCycle = ?, idClasse = ? WHERE idScolarite = ?',
       [inscription, pension, nbreTranche, idCycle, idClasse || null, req.params.id]
     )
     const [rows] = await pool.query('SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle WHERE s.idScolarite = ?', [req.params.id])
@@ -349,13 +348,11 @@ router.post('/paiements', async (req, res) => {
   try {
     const { matricule, idAca, montant, idMode, datePaie, idPers, tranches } = req.body
     console.log('POST /paiements body:', { matricule, idAca, montant, idMode, datePaie, idPers, tranches })
-    await pool.query(
-      'INSERT INTO Paiement (matricule, idAca, montant, idMode, date, idPers) VALUES (?, ?, ?, ?, ?, ?)',
-      [matricule, idAca, montant, idMode, datePaie || new Date().toISOString().slice(0, 10), idPers]
-    )
+    const now = new Date()
+    const nbreTranches = (tranches && tranches.length) ||  1
     const [result] = await pool.query(
-      'INSERT INTO Paiement (matricule, idAca, montant, idMode, datePaie, idPers, dateEnregistrer) VALUES (?, ?, ?, ?, ?, ?, NOW())',
-      [matricule, idAca, montant, idMode, datePaie || new Date().toISOString().slice(0, 10), idPers]
+      'INSERT INTO Paiement (matricule, idAca, montant, idMode, date, idPers, trancheCouverte, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [matricule, idAca, montant, idMode, datePaie || now, idPers, nbreTranches, now, now]
     )
     const idPaie = result.insertId
     if (tranches && tranches.length > 0) {

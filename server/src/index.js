@@ -80,6 +80,14 @@ async function migrate() {
     'ALTER TABLE AnneeAcademique ADD COLUMN periode VARCHAR(50) NULL',
     'ALTER TABLE Trimestre ADD COLUMN clos TINYINT(1) DEFAULT 0',
     'ALTER TABLE Trimestre ADD COLUMN periode VARCHAR(100) NULL',
+    'ALTER TABLE Messages MODIFY COLUMN idParent INT UNSIGNED NULL',
+    'ALTER TABLE Messages ADD COLUMN idExp_Pers INT NOT NULL AFTER idMessages',
+    "ALTER TABLE Messages CHANGE COLUMN contenu information TEXT NULL",
+    'ALTER TABLE Messages ADD COLUMN AnneeAcade INT NULL AFTER information',
+    'ALTER TABLE Messages ADD COLUMN receiverRole VARCHAR(20) NULL AFTER AnneeAcade',
+    'ALTER TABLE Messages ADD COLUMN receiverId INT NULL AFTER receiverRole',
+    'ALTER TABLE Messages ADD COLUMN receiverLabel VARCHAR(100) NULL AFTER receiverId',
+    "ALTER TABLE Rapport ADD COLUMN commentaire TEXT NULL AFTER idDiscipline",
   ]
   for (const sql of alters) {
     try { await pool.query(sql) } catch (e) { /* column may already exist */ }

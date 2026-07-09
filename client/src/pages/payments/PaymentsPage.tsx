@@ -58,7 +58,7 @@ export default function PaymentsPage() {
       const active = an.data.find((a: AnneeAcademique) => a.actif)
       setActiveAnnee(active || null)
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
 
@@ -268,19 +268,19 @@ export default function PaymentsPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">{t('payment.inscription')}</label>
-              <input type="number" min={0} value={tarifForm.inscription} onChange={e => setTarifForm(f => ({ ...f, inscription: parseFloat(e.target.value) }))} required
+              <input type="number" min={0} value={isNaN(tarifForm.inscription) ? '' : tarifForm.inscription} onChange={e => { const v = parseFloat(e.target.value); setTarifForm(f => ({ ...f, inscription: isNaN(v) ? 0 : v })) }} required
                 className="w-full px-3 py-2 border rounded-lg text-sm" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">{t('payment.pension')}</label>
-              <input type="number" min={0} value={tarifForm.pension} onChange={e => setTarifForm(f => ({ ...f, pension: parseFloat(e.target.value) }))} required
+              <input type="number" min={0} value={isNaN(tarifForm.pension) ? '' : tarifForm.pension} onChange={e => { const v = parseFloat(e.target.value); setTarifForm(f => ({ ...f, pension: isNaN(v) ? 0 : v })) }} required
                 className="w-full px-3 py-2 border rounded-lg text-sm" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">{isFr ? 'Nombre de tranches' : 'Number of installments'}</label>
-            <input type="number" min={1} max={12} value={tarifForm.nbreTranche} onChange={e => {
-              const n = parseInt(e.target.value)
+            <input type="number" min={1} max={12} value={isNaN(tarifForm.nbreTranche) ? '' : tarifForm.nbreTranche} onChange={e => {
+              const n = parseInt(e.target.value) || 1
               setTarifForm(f => ({ ...f, nbreTranche: n }))
               setTarifTrancheDates(prev => Array.from({ length: n }, (_, i) => prev[i] || ''))
             }} required className="w-full px-3 py-2 border rounded-lg text-sm" />
@@ -328,6 +328,7 @@ export default function PaymentsPage() {
           )}
           search={searchHistory}
           onSearch={setSearchHistory}
+          rowId={(p: Paiement) => p.idPaie}
           actions={(p: Paiement) => (
             <button onClick={() => openReceipt(p.idPaie)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cameroon-green/10 text-cameroon-green rounded-lg hover:bg-cameroon-green/20 transition" title={t('payment.receipt')}>
               <Printer size={14} />
@@ -452,7 +453,7 @@ export default function PaymentsPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">{t('payment.montant')}</label>
-            <input type="number" min={0} value={paieForm.montant || ''} onChange={(e) => setPaieForm({ ...paieForm, montant: parseFloat(e.target.value) })} required className="w-full px-3 py-2 border rounded-lg text-sm" />
+            <input type="number" min={0} value={isNaN(paieForm.montant) ? '' : paieForm.montant} onChange={(e) => { const v = parseFloat(e.target.value); setPaieForm({ ...paieForm, montant: isNaN(v) ? 0 : v }) }} required className="w-full px-3 py-2 border rounded-lg text-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">{t('payment.mode')}</label>
