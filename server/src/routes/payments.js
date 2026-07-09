@@ -304,7 +304,8 @@ router.get('/modes', async (_req, res) => {
 router.post('/modes', async (req, res) => {
   try {
     const { libelle } = req.body
-    const [result] = await pool.query('INSERT INTO Mode (libelle, information, idFondateur) VALUES (?, ?, ?)', [libelle, libelle, 1])
+    const now = new Date()
+    const [result] = await pool.query('INSERT INTO Mode (libelle, idFondateur, createdAt, updatedAt) VALUES (?, ?, ?, ?)', [libelle, 1, now, now])
     const [rows] = await pool.query('SELECT * FROM Mode WHERE idMode = ?', [result.insertId])
     res.status(201).json(rows[0])
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -313,7 +314,8 @@ router.post('/modes', async (req, res) => {
 router.put('/modes/:id', async (req, res) => {
   try {
     const { libelle, actif } = req.body
-    await pool.query('UPDATE Mode SET libelle = ?, actif = ? WHERE idMode = ?', [libelle, actif ?? 1, req.params.id])
+    const now = new Date()
+    await pool.query('UPDATE Mode SET libelle = ?, actif = ?, updatedAt = ? WHERE idMode = ?', [libelle, actif ?? 1, now, req.params.id])
     const [rows] = await pool.query('SELECT * FROM Mode WHERE idMode = ?', [req.params.id])
     res.json(rows[0])
   } catch (err) { res.status(500).json({ error: err.message }) }

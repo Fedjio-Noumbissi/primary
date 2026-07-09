@@ -254,9 +254,9 @@ router.post('/enroll', authenticate, async (req, res) => {
     }
     const [existing] = await connection.query('SELECT * FROM Frequente WHERE matricule = ? AND idAcademi = ?', [matricule, idAcademi])
     if (existing.length) {
-      await connection.query('UPDATE Frequente SET idSalle = ?, idScolarite = ?, updatedAt = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, idScolarite || null, now, matricule, idAcademi])
+      await connection.query('UPDATE Frequente SET idSalle = ?, updatedAt = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, now, matricule, idAcademi])
     } else {
-      await connection.query('INSERT INTO Frequente (idSalle, idAcademi, matricule, idScolarite, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)', [idSalle || 0, idAcademi || 0, matricule, idScolarite || null, now, now])
+      await connection.query('INSERT INTO Frequente (idSalle, idAcademi, matricule, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)', [idSalle || 0, idAcademi || 0, matricule, now, now])
     }
     if (parent && parent.nom && parent.email) {
       let idPers = parent.idPers
