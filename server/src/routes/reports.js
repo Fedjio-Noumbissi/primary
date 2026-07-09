@@ -14,10 +14,10 @@ router.get('/reports/:matricule/:idTrimes', async (req, res) => {
     const [trimestre] = await pool.query('SELECT * FROM Trimestre WHERE idTrimes = ?', [idTrimes])
 
     const [discipline] = await pool.query(
-      `SELECT d.ID, d.libelle, d.points, r.event_date
+      `SELECT d.ID, d.libelle, d.points, r.date AS event_date
        FROM Rapport r
        JOIN Discipline d ON d.ID = r.idDiscipline
-       WHERE r.matricule = ? AND r.idAca = (SELECT idAca FROM Trimestre WHERE idTrimes = ?) AND r.isDelete = 0`,
+       WHERE r.matricule = ? AND r.idAca = (SELECT idAca FROM Trimestre WHERE idTrimes = ?)`,
       [matricule, idTrimes]
     )
 
