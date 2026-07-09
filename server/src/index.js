@@ -63,6 +63,9 @@ app.use(express.json())
     'ALTER TABLE Tranches ADD COLUMN delai_jour VARCHAR(20) NULL',
     'ALTER TABLE Tranches ADD COLUMN date_limite DATE NULL',
     'ALTER TABLE Tranches ADD COLUMN idFondateur INT NULL',
+    'ALTER TABLE Personne ADD COLUMN isDelete TINYINT DEFAULT 0',
+    'ALTER TABLE Parents ADD COLUMN isDelete TINYINT DEFAULT 0',
+    'ALTER TABLE Epreuve ADD COLUMN isDelete TINYINT DEFAULT 0',
   ]
   for (const sql of alters) {
     try { await pool.query(sql) } catch (e) { /* column may already exist */ }

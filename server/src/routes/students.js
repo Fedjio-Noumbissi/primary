@@ -248,11 +248,23 @@ router.post('/enroll', authenticate, async (req, res) => {
       idSalle = salles.length ? salles[0].idSalle : 0
     }
 
+    const now = new Date()
+    const [inEleve] = await connection.query('SELECT 1 FROM Eleve WHERE matricule = ?', [String(matricule)])
+    if (!inEleve.length) {
+      const [fromEleves] = await connection.query('SELECT * FROM eleves WHERE matricule = ?', [String(matricule)])
+      if (fromEleves.length) {
+        const e = fromEleves[0]
+        await connection.query(
+          "INSERT INTO Eleve (matricule, nom, prenom, dateNaissance, lieuNaissance, sexe, langue, actif, idVilleNaissance, idAdmin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 1, NOW())",
+          [String(e.matricule), e.nom || '', e.prenom || '', e.date_naissance || '2000-01-01', e.lieu_naissance || '', e.sexe === 'M' ? 1 : 2, e.langue || 'FR']
+        )
+      }
+    }
     const [existing] = await connection.query('SELECT * FROM Frequente WHERE matricule = ? AND idAcademi = ?', [matricule, idAcademi])
     if (existing.length) {
-      await connection.query('UPDATE Frequente SET idSalle = ?, idAdmin = ?, idScolarite = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, idAdmin, idScolarite || null, matricule, idAcademi])
+      await connection.query('UPDATE Frequente SET idSalle = ?, idScolarite = ?, updatedAt = ? WHERE matricule = ? AND idAcademi = ?', [idSalle, idScolarite || null, now, matricule, idAcademi])
     } else {
-      await connection.query('INSERT INTO Frequente (idSalle, idAcademi, matricule, idAdmin, idScolarite) VALUES (?, ?, ?, ?, ?)', [idSalle || 0, idAcademi || 0, matricule, idAdmin, idScolarite || null])
+      await connection.query('INSERT INTO Frequente (idSalle, idAcademi, matricule, idScolarite, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)', [idSalle || 0, idAcademi || 0, matricule, idScolarite || null, now, now])
     }
     if (parent && parent.nom && parent.email) {
       let idPers = parent.idPers
@@ -274,7 +286,7 @@ router.post('/enroll', authenticate, async (req, res) => {
           sendWelcomeEmail(parent.email, parent.password || 'password', `${parent.prenom || ''} ${parent.nom}`.trim(), 'parent').catch(console.error)
         }
       }
-      await connection.query('INSERT INTO Parents (idPers, matricule, idAdmin, createdAt, updatedAt) VALUES (?, ?, ?, NOW(), NOW())', [idPers, matricule, idAdmin])
+      await connection.query('INSERT INTO Parents (idPers, matricule, createdAt, updatedAt) VALUES (?, ?, NOW(), NOW())', [idPers, matricule])
     }
     await connection.commit()
     res.json({ success: true })

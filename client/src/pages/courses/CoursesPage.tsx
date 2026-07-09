@@ -125,6 +125,9 @@ export default function CoursesPage() {
       classAPI.getClasses(),
     ]).then(([, t]) => {
       setTimetable(t.data)
+    }).catch(err => {
+      console.error('Failed to load courses/timetable data:', err)
+    }).finally(() => {
       setLoading(false)
     })
   }, [user])

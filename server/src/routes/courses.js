@@ -28,7 +28,9 @@ router.post('/courses', async (req, res) => {
 
 router.get('/timetable', async (req, res) => {
   try {
-    let query = 'SELECT e.*, c.libelle AS cours, c.couleur FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours'
+    let query = `SELECT e.idTemps, e.jour, e.heureDebut AS heure, e.heureFin, e.idClasse, e.idCours, e.idEnseignant, e.idSalle, e.createdAt, e.updatedAt,
+      c.libelle AS cours, c.couleur
+      FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours`
     const params = []
     const conditions = []
     if (req.query.idClasse) { conditions.push('e.idClasse = ?'); params.push(Number(req.query.idClasse)) }
@@ -48,7 +50,7 @@ router.get('/timetable/check-conflicts', async (req, res) => {
     if (idEnseignant) { orParts.push('e.idEnseignant = ?'); params.push(Number(idEnseignant)) }
     if (idSalle) { orParts.push('e.idSalle = ?'); params.push(Number(idSalle)) }
     if (orParts.length === 0) return res.json({ conflict: false, entries: [] })
-    let query = `SELECT e.*, c.libelle AS cours FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours WHERE e.jour = ? AND e.heure = ? AND (${orParts.join(' OR ')})`
+    let query = `SELECT e.idTemps, e.jour, e.heureDebut AS heure, e.heureFin, e.idClasse, e.idCours, e.idEnseignant, e.idSalle, e.createdAt, e.updatedAt, c.libelle AS cours FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours WHERE e.jour = ? AND e.heureDebut = ? AND (${orParts.join(' OR ')})`
     if (excludeId) { query += ' AND e.idTemps != ?'; params.push(Number(excludeId)) }
     const [rows] = await pool.query(query, params)
     res.json({ conflict: rows.length > 0, entries: rows })
@@ -57,24 +59,28 @@ router.get('/timetable/check-conflicts', async (req, res) => {
 
 router.post('/timetable', async (req, res) => {
   try {
-    const { jour, heure, idClasse, idCours, idEnseignant, idSalle } = req.body
+    const { jour, heureDebut, heureFin, heure, idClasse, idCours, idEnseignant, idSalle } = req.body
+    const debut = heureDebut || heure || '08:00'
+    const fin = heureFin || debut
     const [result] = await pool.query(
-      'INSERT INTO EmploiDuTemps (jour, heure, idClasse, idCours, idEnseignant, idSalle, idAdmin) VALUES (?, ?, ?, ?, ?, ?, 1)',
-      [jour, heure, idClasse, idCours, idEnseignant || null, idSalle || null]
+      'INSERT INTO EmploiDuTemps (jour, heureDebut, heureFin, idClasse, idCours, idEnseignant, idSalle, idAdmin) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
+      [jour, debut, fin, idClasse, idCours, idEnseignant || null, idSalle || null]
     )
-    const [rows] = await pool.query('SELECT e.*, c.libelle AS cours FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours WHERE e.idTemps = ?', [result.insertId])
+    const [rows] = await pool.query('SELECT e.idTemps, e.jour, e.heureDebut AS heure, e.heureFin, e.idClasse, e.idCours, e.idEnseignant, e.idSalle, e.createdAt, e.updatedAt, c.libelle AS cours FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours WHERE e.idTemps = ?', [result.insertId])
     res.status(201).json(rows[0])
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 router.put('/timetable/:id', async (req, res) => {
   try {
-    const { jour, heure, idCours, idEnseignant, idSalle } = req.body
+    const { jour, heureDebut, heureFin, heure, idClasse, idCours, idEnseignant, idSalle } = req.body
+    const debut = heureDebut || heure || '08:00'
+    const fin = heureFin || debut
     await pool.query(
-      'UPDATE EmploiDuTemps SET jour = ?, heure = ?, idCours = ?, idEnseignant = ?, idSalle = ? WHERE idTemps = ?',
-      [jour, heure, idCours, idEnseignant || null, idSalle || null, Number(req.params.id)]
+      'UPDATE EmploiDuTemps SET jour = ?, heureDebut = ?, heureFin = ?, idClasse = ?, idCours = ?, idEnseignant = ?, idSalle = ? WHERE idTemps = ?',
+      [jour, debut, fin, idClasse || null, idCours, idEnseignant || null, idSalle || null, Number(req.params.id)]
     )
-    const [rows] = await pool.query('SELECT e.*, c.libelle AS cours FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours WHERE e.idTemps = ?', [Number(req.params.id)])
+    const [rows] = await pool.query('SELECT e.idTemps, e.jour, e.heureDebut AS heure, e.heureFin, e.idClasse, e.idCours, e.idEnseignant, e.idSalle, e.createdAt, e.updatedAt, c.libelle AS cours FROM EmploiDuTemps e JOIN Cours c ON e.idCours = c.idCours WHERE e.idTemps = ?', [Number(req.params.id)])
     res.json(rows[0])
   } catch (err) { res.status(500).json({ error: err.message }) }
 })

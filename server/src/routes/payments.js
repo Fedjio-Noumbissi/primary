@@ -151,9 +151,10 @@ router.get('/scolarites', async (_req, res) => {
 router.post('/scolarites', async (req, res) => {
   try {
     const { inscription, pension, nbreTranche, idCycle, idClasse, description } = req.body
+    const now = new Date()
     const [result] = await pool.query(
-      'INSERT INTO Scolarite (inscription, pension, nbreTranche, idCycle, idClasse, description, idFondateur) VALUES (?, ?, ?, ?, ?, ?, 1)',
-      [inscription, pension, nbreTranche || 3, idCycle || null, idClasse || null, description || `Plan ${idClasse ? `classe #${idClasse}` : `cycle ${idCycle}`}`]
+      'INSERT INTO Scolarite (montantInscription, pension, nbreTranche, idCycle, idClasse, description, idFondateur, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [inscription, pension, nbreTranche || 3, idCycle || null, idClasse || null, description || `Plan ${idClasse ? `classe #${idClasse}` : `cycle ${idCycle}`}`, 1, now, now]
     )
     const [rows] = await pool.query('SELECT s.*, cy.libelle AS cycle FROM Scolarite s LEFT JOIN Cycle cy ON s.idCycle = cy.idCycle WHERE s.idScolarite = ?', [result.insertId])
     res.status(201).json(rows[0])
@@ -218,16 +219,18 @@ router.post('/scolarites-with-tranches', async (req, res) => {
   try {
     await conn.beginTransaction()
     const { inscription, pension, nbreTranche, idCycle, idClasse, tranches } = req.body
+    const now = new Date()
     const [scolResult] = await conn.query(
-      'INSERT INTO Scolarite (inscription, pension, nbreTranche, idCycle, idClasse, description, idFondateur) VALUES (?, ?, ?, ?, ?, ?, 1)',
-      [inscription, pension, nbreTranche, idCycle || null, idClasse || null, '', 1]
+      'INSERT INTO Scolarite (montantInscription, pension, nbreTranche, idCycle, idClasse, description, idFondateur, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [inscription, pension, nbreTranche, idCycle || null, idClasse || null, '', 1, now, now]
     )
     const idScolarite = scolResult.insertId
     if (tranches && tranches.length > 0) {
-      for (const t of tranches) {
+      for (let i = 0; i < tranches.length; i++) {
+        const t = tranches[i]
         await conn.query(
-          'INSERT INTO Tranches (libelle, montant, delai_mois, delai_jour, date_limite, idScolarite, idFondateur) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [t.libelle, t.montant, t.delai_mois || '', t.delai_jour || '', t.date_limite || null, idScolarite, 1]
+          'INSERT INTO Tranches (libelle, montant, numero, dateEcheance, delai_mois, delai_jour, date_limite, idScolarite, idFondateur, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [t.libelle, t.montant, i + 1, t.dateEcheance || now, t.delai_mois || '', t.delai_jour || '', t.date_limite || null, idScolarite, 1, now, now]
         )
       }
     }
@@ -262,10 +265,11 @@ router.get('/tranches', async (req, res) => {
 
 router.post('/tranches', async (req, res) => {
   try {
-    const { libelle, montant, delai_mois, delai_jour, date_limite, idScolarite } = req.body
+    const { libelle, montant, numero, dateEcheance, delai_mois, delai_jour, date_limite, idScolarite } = req.body
+    const now = new Date()
     const [result] = await pool.query(
-      'INSERT INTO Tranches (libelle, montant, delai_mois, delai_jour, date_limite, idScolarite, idFondateur) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [libelle, montant, delai_mois || '', delai_jour || '', date_limite || null, idScolarite, 1]
+      'INSERT INTO Tranches (libelle, montant, numero, dateEcheance, delai_mois, delai_jour, date_limite, idScolarite, idFondateur, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [libelle, montant, numero || 1, dateEcheance || now, delai_mois || '', delai_jour || '', date_limite || null, idScolarite, 1, now, now]
     )
     const [rows] = await pool.query('SELECT * FROM Tranches WHERE idTranche = ?', [result.insertId])
     res.status(201).json(rows[0])

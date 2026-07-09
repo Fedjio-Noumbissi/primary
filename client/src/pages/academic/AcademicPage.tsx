@@ -152,10 +152,10 @@ export default function AcademicPage() {
           const isActive = !!a.actif
           const isSelected = a.idAnnee === selectedAnnee
           return (
-            <button
+            <div
               key={a.idAnnee}
               onClick={() => setSelectedAnnee(a.idAnnee)}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition group ${
+              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition group cursor-pointer ${
                 isSelected
                   ? 'border-cameroon-green bg-cameroon-green/5 text-cameroon-green'
                   : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
@@ -183,7 +183,7 @@ export default function AcademicPage() {
               >
                 <Trash2 size={14} />
               </button>
-            </button>
+            </div>
           )
         })}
       </div>
