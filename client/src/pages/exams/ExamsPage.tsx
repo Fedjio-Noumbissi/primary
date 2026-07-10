@@ -48,8 +48,8 @@ export default function ExamsPage() {
         ? [dashboardAPI.getTeacherData(user!.idPers).then(r => {
             const d = r.data
             setCourses(d.cours || [])
-            const classIds = [...new Set((d.cours || []).map((c: any) => c.idClasse).filter(Boolean))]
-            return Promise.all(classIds.map((id: number) => studentAPI.getByClass(id)))
+            const classIds: number[] = [...new Set((d.cours || []).map((c: any) => c.idClasse).filter(Boolean))] as number[]
+            return Promise.all(classIds.map((id) => studentAPI.getByClass(id)))
               .then(results => {
                 const all = results.flatMap(r => r.data)
                 const seen = new Set()

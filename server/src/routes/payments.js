@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import PDFDocument from 'pdfkit'
+import { authenticate } from '../middleware/auth.js'
 
 const router = Router()
+router.use(authenticate)
 
 function formatCurrency(amount) {
   return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' FCFA'

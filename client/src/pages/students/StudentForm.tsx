@@ -236,18 +236,13 @@ export default function StudentForm() {
         ? parent
         : undefined
 
-      const baseEnroll: Record<string, any> = {
+      const baseEnroll = {
         matricule: newMatricule,
         parent: parentPayload,
+        ...(enrollment.idClasse && enrollment.idAcademi ? { idClasse: enrollment.idClasse, idAcademi: enrollment.idAcademi } : {}),
+        ...(enrollment.idScolarite ? { idScolarite: enrollment.idScolarite } : {}),
       }
-      if (enrollment.idClasse && enrollment.idAcademi) {
-        baseEnroll.idClasse = enrollment.idClasse
-        baseEnroll.idAcademi = enrollment.idAcademi
-      }
-      if (enrollment.idScolarite) {
-        baseEnroll.idScolarite = enrollment.idScolarite
-      }
-      await studentAPI.enroll(baseEnroll)
+      await studentAPI.enroll(baseEnroll as Parameters<typeof studentAPI.enroll>[0])
       toast.success(t('toast.saved'))
       navigate('/admin/students')
     } catch {

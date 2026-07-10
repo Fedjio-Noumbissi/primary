@@ -2,11 +2,13 @@ import { Router } from 'express'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { authenticate } from '../middleware/auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_FILE = path.join(__dirname, '../../school_info.json')
 
 const router = Router()
+router.use(authenticate)
 
 function read() {
   try {

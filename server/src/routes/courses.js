@@ -1,7 +1,9 @@
 import { Router } from 'express'
 import pool from '../db.js'
+import { authenticate } from '../middleware/auth.js'
 
 const router = Router()
+router.use(authenticate)
 
 router.get('/courses', async (_req, res) => {
   try {

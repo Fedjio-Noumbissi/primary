@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
-import type { EventClickArg, DateSelectArg, EventDropArg, EventResizeDoneArg, DatesSetArg } from '@fullcalendar/core'
+import type { EventClickArg, DateSelectArg, EventDropArg, DatesSetArg } from '@fullcalendar/core'
 import { courseAPI, teacherAPI, classAPI, dashboardAPI } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { Course, EmploiDuTemps, Classe, Teacher, Salle, Cycle } from '../../types'
@@ -237,7 +237,7 @@ export default function CoursesPage() {
     }
   }
 
-  async function handleEventResize(resizeInfo: EventResizeDoneArg) {
+  async function handleEventResize(resizeInfo: any) {
     const id = Number(resizeInfo.event.id)
     const start = resizeInfo.event.start!
     const end = resizeInfo.event.end!
